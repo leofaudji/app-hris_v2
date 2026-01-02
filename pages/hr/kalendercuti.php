@@ -1,0 +1,22 @@
+<?php
+$is_spa_request = isset($_SERVER['HTTP_X_SPA_REQUEST']) && $_SERVER['HTTP_X_SPA_REQUEST'] === 'true';
+if (!$is_spa_request) {
+    require_once PROJECT_ROOT . '/views/header.php';
+}
+?>
+
+<div class="flex justify-between flex-wrap items-center pt-3 pb-2 mb-3 border-b border-gray-200 dark:border-gray-700">
+    <h1 class="text-2xl font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+        <i class="bi bi-calendar-heart-fill"></i> Kalender Cuti Karyawan
+    </h1>
+</div>
+
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
+    <div id="leave-calendar"></div>
+</div>
+
+<?php
+if (!$is_spa_request) {
+    require_once PROJECT_ROOT . '/views/footer.php';
+}
+?>
