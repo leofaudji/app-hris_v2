@@ -1,6 +1,6 @@
 function initPortalDashboardPage() {
     if (document.getElementById('portal-nama-karyawan')) {
-        fetch(`${basePath}/api/portal/dashboard`)
+        fetch(`${basePath}/api/hr/portal/dashboard`)
             .then(response => response.json())
             .then(res => {
                 if (res.success) {

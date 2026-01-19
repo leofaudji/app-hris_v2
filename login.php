@@ -12,6 +12,10 @@ require_once __DIR__ . '/includes/bootstrap.php';
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= base_url('/assets/css/style.css') ?>">
     <?php
     $login_bg_color = get_setting('login_bg_color', '#075E54');
@@ -31,14 +35,17 @@ require_once __DIR__ . '/includes/bootstrap.php';
                         brand: {
                             bg: 'var(--brand-bg-color)',
                             btn: 'var(--brand-btn-color)',
-                        }
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
                     }
                 }
             }
         }
     </script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 font-sans">
     <div class="min-h-screen flex flex-wrap">
         <!-- Left Column -->
         <div class="hidden md:flex w-full md:w-1/2 lg:w-7/12 bg-brand-bg text-white items-center justify-center p-12">

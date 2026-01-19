@@ -72,6 +72,7 @@ try {
             $kantor_id = !empty($_POST['kantor_id']) ? (int)$_POST['kantor_id'] : null;
             $golongan_gaji_id = !empty($_POST['golongan_gaji_id']) ? (int)$_POST['golongan_gaji_id'] : null;
             $tanggal_masuk = $_POST['tanggal_masuk'];
+            $tanggal_berakhir_kontrak = !empty($_POST['tanggal_berakhir_kontrak']) ? $_POST['tanggal_berakhir_kontrak'] : null;
             $status = $_POST['status'] ?? 'aktif';
             $npwp = $_POST['npwp'] ?? null;
             $status_ptkp = $_POST['status_ptkp'] ?? 'TK/0';
@@ -99,12 +100,12 @@ try {
 
             if ($id) {
                 // Update Data
-                $stmt = $conn->prepare("UPDATE hr_karyawan SET nip=?, nama_lengkap=?, jabatan_id=?, jadwal_kerja_id=?, divisi_id=?, kantor_id=?, golongan_gaji_id=?, tanggal_masuk=?, status=?, npwp=?, status_ptkp=?, ikut_bpjs_kes=?, ikut_bpjs_tk=? WHERE id=?");
-                $stmt->bind_param("ssiiiiissssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk, $id);
+                $stmt = $conn->prepare("UPDATE hr_karyawan SET nip=?, nama_lengkap=?, jabatan_id=?, jadwal_kerja_id=?, divisi_id=?, kantor_id=?, golongan_gaji_id=?, tanggal_masuk=?, tanggal_berakhir_kontrak=?, status=?, npwp=?, status_ptkp=?, ikut_bpjs_kes=?, ikut_bpjs_tk=? WHERE id=?");
+                $stmt->bind_param("ssiiiiisssssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk, $id);
             } else {
                 // Insert Data Baru
-                $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, status, npwp, status_ptkp, ikut_bpjs_kes, ikut_bpjs_tk) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssiiiissssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk);
+                $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status, npwp, status_ptkp, ikut_bpjs_kes, ikut_bpjs_tk) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssiiiiisssssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk);
             }
 
             if ($stmt->execute()) {

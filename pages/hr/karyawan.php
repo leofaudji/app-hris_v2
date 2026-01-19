@@ -144,6 +144,11 @@ if (!$is_spa_request) {
                     </div>
 
                     <div class="mb-4">
+                        <label for="tanggal_berakhir_kontrak" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal Berakhir Kontrak (Opsional)</label>
+                        <input type="date" name="tanggal_berakhir_kontrak" id="tanggal_berakhir_kontrak" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                    </div>
+
+                    <div class="mb-4">
                         <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                         <select name="status" id="status" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
                             <option value="aktif">Aktif</option>

@@ -80,7 +80,8 @@ try {
                     SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir,
                     SUM(CASE WHEN status = 'sakit' THEN 1 ELSE 0 END) as sakit,
                     SUM(CASE WHEN status = 'izin' THEN 1 ELSE 0 END) as izin,
-                    SUM(CASE WHEN status = 'alpa' THEN 1 ELSE 0 END) as alpa
+                    SUM(CASE WHEN status = 'alpa' THEN 1 ELSE 0 END) as alpa,
+                    GROUP_CONCAT(CASE WHEN status = 'hadir' THEN DAY(tanggal) END ORDER BY tanggal ASC SEPARATOR ', ') as tanggal_hadir
                 FROM hr_absensi 
                 WHERE karyawan_id = ? AND MONTH(tanggal) = ? AND YEAR(tanggal) = ?
             ");
@@ -147,9 +148,12 @@ try {
                     // 2. Proses komponen gaji default
                     foreach ($default_components as $comp) {
                         $jumlah_komponen = $comp['nilai_default'];
+                        $multiplier = 1;
+
                         // Hitung ulang jumlah jika tipe hitungnya harian
                         if ($comp['tipe_hitung'] === 'harian') {
                             $jumlah_komponen = $comp['nilai_default'] * $jumlah_hari_hadir;
+                            $multiplier = $jumlah_hari_hadir;
                         }
 
                         if ($comp['jenis'] === 'pendapatan') {
@@ -158,7 +162,15 @@ try {
                             $total_potongan += $jumlah_komponen;
                         }
 
-                        $komponen_details[] = ['komponen_id' => $comp['id'], 'nama_komponen' => $comp['nama_komponen'], 'jenis' => $comp['jenis'], 'jumlah' => $jumlah_komponen];
+                        $komponen_details[] = [
+                            'komponen_id' => $comp['id'], 
+                            'nama_komponen' => $comp['nama_komponen'], 
+                            'jenis' => $comp['jenis'], 
+                            'jumlah' => $jumlah_komponen,
+                            'tipe_hitung' => $comp['tipe_hitung'],
+                            'nilai_satuan' => $comp['nilai_default'],
+                            'multiplier' => $multiplier
+                        ];
                     }
 
                     // --- Kalkulasi BPJS ---

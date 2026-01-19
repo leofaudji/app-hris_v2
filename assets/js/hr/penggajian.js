@@ -132,15 +132,19 @@ function renderPreviewTable(data) {
     document.getElementById('confirm-generate-gaji-btn').disabled = false;
 
     let accordionHtml = '<div class="space-y-3">';
+    
+    const bulan = document.getElementById('filter-bulan').value;
+    const tahun = document.getElementById('filter-tahun').value;
 
     data.forEach((karyawan, index) => {
         // --- Absensi ---
         const absensi = karyawan.absensi || { hadir: 0, sakit: 0, izin: 0, alpa: 0 };
+        const tooltipHadir = absensi.tanggal_hadir ? `Hadir tgl: ${absensi.tanggal_hadir}` : 'Lihat Detail Hadir';
         const absensiHtml = `
             <div class="mb-6">
                 <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">Ringkasan Absensi</h4>
                 <div class="flex flex-wrap gap-2">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200" title="Hadir">Hadir: <strong>${absensi.hadir || 0}</strong></span>
+                    <a href="${basePath}/hr/absensi?karyawan_id=${karyawan.karyawan_id}&bulan=${bulan}&tahun=${tahun}" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800 transition-colors" title="${tooltipHadir}">Hadir: <strong>${absensi.hadir || 0}</strong> <i class="bi bi-box-arrow-up-right ml-1"></i></a>
                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200" title="Sakit">Sakit: <strong>${absensi.sakit || 0}</strong></span>
                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200" title="Izin">Izin: <strong>${absensi.izin || 0}</strong></span>
                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200" title="Alpa">Alpa: <strong>${absensi.alpa || 0}</strong></span>
@@ -163,9 +167,16 @@ function renderPreviewTable(data) {
         `;
 
         karyawan.komponen_details.forEach((komp, kIndex) => {
+            let label = komp.nama_komponen;
+            if (komp.tipe_hitung === 'harian') {
+                const rate = parseFloat(komp.nilai_satuan) || 0;
+                const rateFormatted = new Intl.NumberFormat('id-ID').format(rate);
+                label += ` <div class="text-xs text-gray-500 font-normal">(${komp.multiplier} hari x ${rateFormatted})</div>`;
+            }
+
             const componentRow = `
                 <div class="flex justify-between items-center py-1.5">
-                    <span class="text-sm text-gray-800 dark:text-gray-300">${komp.nama_komponen}</span>
+                    <span class="text-sm text-gray-800 dark:text-gray-300">${label}</span>
                     <input type="number" class="w-36 text-right text-sm border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600" 
                         value="${komp.jumlah}" oninput="updatePreviewComponent(${index}, ${kIndex}, this.value)">
                 </div>

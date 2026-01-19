@@ -21,10 +21,21 @@ $conn->query("TRUNCATE TABLE hr_absensi;");
 $conn->query("TRUNCATE TABLE hr_pengajuan_cuti;");
 $conn->query("TRUNCATE TABLE hr_jatah_cuti;");
 $conn->query("TRUNCATE TABLE hr_karyawan;");
+
+// Truncate Master Tables
+$conn->query("TRUNCATE TABLE hr_kantor;");
+$conn->query("TRUNCATE TABLE hr_divisi;");
+$conn->query("TRUNCATE TABLE hr_jadwal_kerja;");
+$conn->query("TRUNCATE TABLE hr_jabatan;");
+$conn->query("TRUNCATE TABLE hr_golongan_gaji;");
+$conn->query("TRUNCATE TABLE hr_komponen_gaji;");
+$conn->query("TRUNCATE TABLE hr_jenis_cuti;");
+$conn->query("TRUNCATE TABLE hr_absensi_golongan;");
+$conn->query("TRUNCATE TABLE hr_absensi_status;");
+
 $conn->query("DELETE FROM users WHERE id > 2;"); // Hapus user dummy selain admin & user
-// Master data tidak di-truncate, tapi akan menggunakan INSERT IGNORE
 $conn->query("SET FOREIGN_KEY_CHECKS=1;");
-log_step("Data transaksional lama (Karyawan, Absensi, Cuti, Gaji) berhasil dibersihkan.");
+log_step("Semua data HR (Master & Transaksi) berhasil dibersihkan.");
 
 
 // 1. Kantor
@@ -34,7 +45,7 @@ $kantors = [
     ['nama_kantor' => 'Cabang Surabaya', 'jenis_kantor' => 'Cabang', 'alamat' => 'Jl. Tunjungan No. 5, Surabaya'],
 ];
 foreach ($kantors as $k) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_kantor (nama_kantor, jenis_kantor, alamat) VALUES (?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_kantor (nama_kantor, jenis_kantor, alamat) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $k['nama_kantor'], $k['jenis_kantor'], $k['alamat']);
     $stmt->execute();
 }
@@ -43,7 +54,7 @@ log_step("Data Kantor berhasil dibuat.");
 // 2. Divisi
 $divisis = ['IT Development', 'Human Resources', 'Finance & Accounting', 'Marketing', 'Operasional'];
 foreach ($divisis as $d) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_divisi (nama_divisi) VALUES (?)");
+    $stmt = $conn->prepare("INSERT INTO hr_divisi (nama_divisi) VALUES (?)");
     $stmt->bind_param("s", $d);
     $stmt->execute();
 }
@@ -56,7 +67,7 @@ $jadwals = [
     ['nama_jadwal' => 'Shift Siang (14-22)', 'jam_masuk' => '14:00:00', 'jam_pulang' => '22:00:00'],
 ];
 foreach ($jadwals as $j) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_jadwal_kerja (nama_jadwal, jam_masuk, jam_pulang) VALUES (?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_jadwal_kerja (nama_jadwal, jam_masuk, jam_pulang) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $j['nama_jadwal'], $j['jam_masuk'], $j['jam_pulang']);
     $stmt->execute();
 }
@@ -71,7 +82,7 @@ $jabatans = [
     ['nama_jabatan' => 'Admin', 'tunjangan' => 300000],
 ];
 foreach ($jabatans as $j) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_jabatan (nama_jabatan, tunjangan) VALUES (?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_jabatan (nama_jabatan, tunjangan) VALUES (?, ?)");
     $stmt->bind_param("sd", $j['nama_jabatan'], $j['tunjangan']);
     $stmt->execute();
 }
@@ -85,7 +96,7 @@ $golongans = [
     ['nama_golongan' => 'Grade D', 'gaji_pokok' => 4500000, 'keterangan' => 'Junior Level'],
 ];
 foreach ($golongans as $g) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_golongan_gaji (nama_golongan, gaji_pokok, keterangan) VALUES (?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_golongan_gaji (nama_golongan, gaji_pokok, keterangan) VALUES (?, ?, ?)");
     $stmt->bind_param("sds", $g['nama_golongan'], $g['gaji_pokok'], $g['keterangan']);
     $stmt->execute();
 }
@@ -101,13 +112,13 @@ $komponens = [
     ['nama_komponen' => 'Potongan Kasbon', 'jenis' => 'potongan', 'tipe_hitung' => 'bulanan', 'nilai_default' => 0, 'is_default' => 0],
 ];
 foreach ($komponens as $k) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_komponen_gaji (nama_komponen, jenis, tipe_hitung, nilai_default, is_default) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_komponen_gaji (nama_komponen, jenis, tipe_hitung, nilai_default, is_default) VALUES (?, ?, ?, ?, ?)");
     $stmt->bind_param("sssdi", $k['nama_komponen'], $k['jenis'], $k['tipe_hitung'], $k['nilai_default'], $k['is_default']);
     $stmt->execute();
 }
 log_step("Data Komponen Gaji berhasil dibuat.");
 
-// 6.5. Jenis Cuti
+// 7. Jenis Cuti
 $jenis_cutis = [
     ['nama_jenis' => 'Cuti Tahunan', 'mengurangi_jatah_cuti' => 1],
     ['nama_jenis' => 'Cuti Sakit', 'mengurangi_jatah_cuti' => 0],
@@ -115,13 +126,36 @@ $jenis_cutis = [
     ['nama_jenis' => 'Cuti Melahirkan', 'mengurangi_jatah_cuti' => 0],
 ];
 foreach ($jenis_cutis as $jc) {
-    $stmt = $conn->prepare("INSERT IGNORE INTO hr_jenis_cuti (nama_jenis, mengurangi_jatah_cuti) VALUES (?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hr_jenis_cuti (nama_jenis, mengurangi_jatah_cuti) VALUES (?, ?)");
     $stmt->bind_param("si", $jc['nama_jenis'], $jc['mengurangi_jatah_cuti']);
     $stmt->execute();
 }
 log_step("Data Jenis Cuti berhasil dibuat.");
 
-// 6.6. Role Karyawan
+// 8. Golongan Absensi
+$absensi_golongans = ['Shift Pagi', 'Shift Siang', 'Shift Malam', 'Non-Shift'];
+foreach ($absensi_golongans as $ag) {
+    $stmt = $conn->prepare("INSERT INTO hr_absensi_golongan (nama_golongan) VALUES (?)");
+    $stmt->bind_param("s", $ag);
+    $stmt->execute();
+}
+log_step("Data Golongan Absensi berhasil dibuat.");
+
+// 9. Status Absensi
+$absensi_statuses = [
+    ['nama_status' => 'hadir', 'badge_class' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'],
+    ['nama_status' => 'izin', 'badge_class' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'],
+    ['nama_status' => 'sakit', 'badge_class' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'],
+    ['nama_status' => 'alpa', 'badge_class' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'],
+];
+foreach ($absensi_statuses as $as) {
+    $stmt = $conn->prepare("INSERT INTO hr_absensi_status (nama_status, badge_class) VALUES (?, ?)");
+    $stmt->bind_param("ss", $as['nama_status'], $as['badge_class']);
+    $stmt->execute();
+}
+log_step("Data Status Absensi berhasil dibuat.");
+
+// 10. Role Karyawan (Ensure it exists)
 $conn->query("INSERT IGNORE INTO roles (id, name, description) VALUES (4, 'Karyawan', 'Akses untuk portal karyawan self-service')");
 $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_karyawan')");
 $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_dashboard')");
@@ -131,7 +165,7 @@ $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'port
 log_step("Role 'Karyawan' dan akses menunya berhasil dibuat.");
 
 
-// 7. Karyawan
+// 11. Karyawan
 // Ambil ID dari tabel master untuk relasi acak
 $kantor_ids = $conn->query("SELECT id FROM hr_kantor")->fetch_all(MYSQLI_ASSOC);
 $divisi_ids = $conn->query("SELECT id FROM hr_divisi")->fetch_all(MYSQLI_ASSOC);
@@ -155,9 +189,10 @@ foreach ($karyawans as $i => $k) {
     $kantor_id = $kantor_ids[$i % count($kantor_ids)]['id'];
     $golongan_id = $golongan_ids[$i % count($golongan_ids)]['id'];
     $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 3) . " years"));
+    $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(1, 12) . " months"));
 
-    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
-    $stmt->bind_param("ssiiiiis", $k['nip'], $k['nama'], $jabatan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk);
+    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
+    $stmt->bind_param("ssiiiiiss", $k['nip'], $k['nama'], $jabatan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
     $stmt->execute();
 }
 
@@ -183,7 +218,7 @@ foreach ($karyawan_list_for_jatah as $k_jatah) {
 log_step("Data Jatah Cuti awal tahun berhasil dibuat untuk semua karyawan.");
 log_step("Data Karyawan berhasil dibuat (" . count($karyawans) . " orang).");
 
-// 8. Pengajuan Cuti & Absensi
+// 12. Pengajuan Cuti & Absensi
 $karyawan_list = $conn->query("SELECT id FROM hr_karyawan")->fetch_all(MYSQLI_ASSOC);
 $jenis_cuti_ids = $conn->query("SELECT id, mengurangi_jatah_cuti FROM hr_jenis_cuti")->fetch_all(MYSQLI_ASSOC);
 $jenis_cuti_tahunan_id = 0;
@@ -266,7 +301,7 @@ foreach ($karyawan_list as $k) {
 }
 log_step("Data Absensi berhasil dibuat (termasuk dari cuti yang disetujui).");
 
-// 9. Penggajian (Bulan Lalu)
+// 13. Penggajian (Bulan Lalu)
 // Kita gunakan API handler logic secara manual di sini untuk simulasi
 $prev_month = date('n', strtotime("first day of last month"));
 $prev_year = date('Y', strtotime("first day of last month"));

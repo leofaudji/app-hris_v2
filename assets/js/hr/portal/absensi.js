@@ -11,7 +11,7 @@ function loadPortalAbsensi() {
     const tbody = document.getElementById('portal-absensi-table-body');
     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Memuat data...</td></tr>';
 
-    fetch(`${basePath}/api/portal/absensi?bulan=${bulan}&tahun=${tahun}`)
+    fetch(`${basePath}/api/hr/portal/absensi?bulan=${bulan}&tahun=${tahun}`)
         .then(response => response.json())
         .then(res => {
             tbody.innerHTML = '';

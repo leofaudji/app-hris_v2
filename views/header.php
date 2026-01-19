@@ -11,9 +11,12 @@ if ($settings_result) {
 $app_name = htmlspecialchars($app_settings['app_name'] ?? 'Aplikasi RT');
 $notification_interval = (int)($app_settings['notification_interval'] ?? 15000);
 $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
+
+// Determine Layout Mode
+$layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
 ?>
 <!doctype html>
-<html lang="en">
+<html lang="en" class="<?= $layout_mode === 'icon_menu' ? 'layout-icon-menu' : '' ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,6 +25,10 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <?php $v=date("Ymd"); ?>
@@ -44,7 +51,7 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
                         },
                     },
                     fontFamily: {
-                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"'],
+                        sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"'],
                     }
                 }
             }
@@ -55,6 +62,13 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
         const basePath = '<?= BASE_PATH ?>';
         const notificationInterval = <?= $notification_interval ?>;
         const logCleanupDays = <?= $log_cleanup_days ?>;
+        const layoutMode = '<?= $layout_mode ?>';
+
+        // Load Sidebar State immediately to prevent flash
+        if (layoutMode === 'sidebar' && localStorage.getItem('sidebar_minimized') === 'true' && window.innerWidth >= 1024) {
+            document.documentElement.classList.add('sidebar-minimized'); // Use html/body class
+            // We add it to body in DOMContentLoaded, but adding to html here helps early rendering
+        }
     </script>
     <style>
         /* Custom scrollbar untuk sidebar */
@@ -66,8 +80,9 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans">
 <div id="app-container" class="flex h-screen overflow-hidden">
+    <?php if ($layout_mode === 'sidebar'): ?>
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out flex flex-col">
+    <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out flex flex-col">
         <!-- Sidebar Header -->
         <div class="flex items-center justify-center h-16 border-b border-gray-200 dark:border-gray-700 px-4 flex-shrink-0">
             <a href="<?= base_url('/dashboard') ?>" class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-white truncate">
@@ -76,49 +91,101 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
                 $logo_url = $logo_path ? base_url($logo_path) : base_url('assets/img/logo.png');
                 ?>
                 <img src="<?= $logo_url ?>" alt="Logo" class="h-8 w-8 object-contain rounded">
-                <span class="hidden-in-collapsed"><?= $app_name ?></span>
+                <span class="hidden-in-collapsed sidebar-text"><?= $app_name ?></span>
             </a>
         </div>
 
+        <!-- Sidebar Search -->
+        <div class="px-3 pt-3 pb-1" id="sidebar-search-container">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
+                    <i class="bi bi-search text-sm"></i>
+                </span>
+                <input type="text" id="sidebar-search" class="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors" placeholder="Cari menu...">
+            </div>
+        </div>
+
         <!-- Sidebar Menu -->
-        <nav class="flex-1 overflow-y-auto sidebar-scroll py-4 px-2 space-y-1">
+        <nav id="sidebar-nav" class="flex-1 overflow-y-auto sidebar-scroll p-2">
             <?php require_once __DIR__ . '/_menu_items.php'; ?>
         </nav>
     </aside>
 
     <!-- Mobile Overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    <?php endif; ?>
 
     <!-- Main Content Wrapper -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto content-wrapper">
         <!-- Top Navbar -->
-        <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-4 lg:px-6 flex-shrink-0 z-20">
+        <header class="sticky top-0 shadow-sm border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-4 lg:px-6 flex-shrink-0 z-50">
+            <!-- Background Blur Layer (Separated to fix fixed-positioning context for children) -->
+            <div class="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm -z-10"></div>
             <!-- Left side: Toggle & Title -->
             <div class="flex items-center">
+                <?php if ($layout_mode === 'sidebar'): // Hanya tampilkan toggle di mode sidebar biasa ?>
                 <button onclick="toggleSidebar()" class="text-gray-500 dark:text-gray-400 focus:outline-none p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
                     <i class="bi bi-list text-2xl"></i>
                 </button>
+                <?php endif; ?>
                 <h1 id="page-title" class="text-xl font-semibold text-gray-800 dark:text-white ml-3 hidden sm:block">Dashboard</h1>
+                <div id="live-clock" class="text-gray-500 dark:text-gray-400 text-sm font-medium ml-4 pl-4 border-l border-gray-300 dark:border-gray-600 hidden md:block"></div>
             </div>
 
             <!-- Right side: Clock, Search, Profile -->
             <div class="flex items-center space-x-2">
-                <div id="live-clock" class="text-gray-600 dark:text-gray-400 text-sm font-semibold hidden md:block"></div>
-                <button onclick="openModal('globalSearchModal')" class="text-gray-500 dark:text-gray-400 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700" title="Pencarian Global">
-                    <i class="bi bi-search text-lg"></i>
-                </button>
+                
+                <!-- Waffle Menu (Icon Menu Mode) -->
+                <?php if ($layout_mode === 'icon_menu'): ?>
+                <div class="relative" data-controller="dropdown">
+                    <button id="waffle-menu-button" onclick="toggleDropdown(this)" class="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none" title="Menu Aplikasi">
+                        <i class="bi bi-grid-3x3-gap-fill text-xl"></i>
+                    </button>
+                    <div class="dropdown-menu waffle-menu-dropdown hidden absolute right-0 mt-2 w-[480px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 p-4 max-h-[80vh] overflow-y-auto">
+                        <div class="mb-3 relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
+                                <i class="bi bi-search text-sm"></i>
+                            </span>
+                            <input type="text" id="icon-menu-search" class="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors" placeholder="Cari menu...">
+                        </div>
+                        <div class="grid grid-cols-3 md:grid-cols-4 gap-2" id="icon-menu-grid">
+                            <?php require __DIR__ . '/_menu_items.php'; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Profile Dropdown -->
                 <div class="relative" data-controller="dropdown">
                     <button onclick="toggleDropdown(this)" class="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
                         <i class="bi bi-person-circle text-xl"></i>
-                        <span class="hidden md:inline"><?= htmlspecialchars($_SESSION['username']) ?></span>
+                        <span class="hidden md:inline">
+                            <?php
+                            $h = date('H');
+                            if ($h >= 3 && $h < 11) $greet = "Selamat Pagi";
+                            elseif ($h >= 11 && $h < 15) $greet = "Selamat Siang";
+                            elseif ($h >= 15 && $h < 18) $greet = "Selamat Sore";
+                            else $greet = "Selamat Malam";
+                            echo $greet . ", " . htmlspecialchars($_SESSION['username']);
+                            ?>
+                        </span>
                         <i class="bi bi-chevron-down text-xs"></i>
                     </button>
                     <div class="dropdown-menu hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                         <a href="#" id="theme-switcher" class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                             <i class="bi bi-moon-stars-fill me-2"></i><span id="theme-switcher-text">Mode Gelap</span>
                         </a>
+                        
+                        <!-- Layout Switcher -->
+                        <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                        <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Layout Menu</div>
+                        <button onclick="setLayoutMode('sidebar')" class="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 <?= $layout_mode === 'sidebar' ? 'bg-gray-50 dark:bg-gray-700 font-bold' : '' ?>">
+                            <i class="bi bi-layout-sidebar me-2"></i> Sidebar (Default)
+                        </button>
+                        <button onclick="setLayoutMode('icon_menu')" class="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 <?= $layout_mode === 'icon_menu' ? 'bg-gray-50 dark:bg-gray-700 font-bold' : '' ?>">
+                            <i class="bi bi-grid-fill me-2"></i> Icon Menu
+                        </button>
+
                         <div class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                             <label for="theme-color-picker" class="flex items-center"><i class="bi bi-palette-fill me-2"></i>Warna Tema</label>
                             <input type="color" id="theme-color-picker" class="w-8 h-8 p-0 border-none rounded" value="#007aff" title="Pilih warna tema Anda">
@@ -136,7 +203,7 @@ $log_cleanup_days = (int)($app_settings['log_cleanup_interval_days'] ?? 180);
         </header>
 
         <!-- Main Scrollable Area -->
-        <main id="main-content" class="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main id="main-content" class="flex-1 p-4 sm:p-6">
 
 <!-- Global Search Modal -->
 <div id="globalSearchModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">

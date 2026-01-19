@@ -14,6 +14,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 try {
     if ($method === 'GET') {
+        $bulan = isset($_GET['bulan']) ? (int)$_GET['bulan'] : date('n');
+        $tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date('Y');
+        $divisi_id = !empty($_GET['divisi_id']) ? (int)$_GET['divisi_id'] : null;
+
         // Aksi untuk mengambil data master
         if (isset($_GET['action'])) {
             if ($_GET['action'] === 'get_golongan') {
@@ -52,12 +56,24 @@ try {
             $sql .= " AND a.tanggal = ?";
             $params[] = $_GET['tanggal'];
             $types .= "s";
+        } else {
+            // Jika tidak ada filter tanggal spesifik, filter berdasarkan bulan & tahun
+            $sql .= " AND MONTH(a.tanggal) = ? AND YEAR(a.tanggal) = ?";
+            $params[] = $bulan;
+            $params[] = $tahun;
+            $types .= "ii";
         }
 
         if (!empty($_GET['status'])) {
             $sql .= " AND a.status = ?";
             $params[] = $_GET['status'];
             $types .= "s";
+        }
+
+        if ($divisi_id) {
+            $sql .= " AND k.divisi_id = ?";
+            $params[] = $divisi_id;
+            $types .= "i";
         }
 
         $sql .= " ORDER BY a.tanggal DESC, k.nama_lengkap ASC";
@@ -71,7 +87,70 @@ try {
         $result = $stmt->get_result();
         $data = $result->fetch_all(MYSQLI_ASSOC);
         
-        echo json_encode(['success' => true, 'data' => $data]);
+        // Hitung total karyawan aktif untuk referensi persentase
+        $sql_count = "SELECT COUNT(id) as total FROM hr_karyawan WHERE status = 'aktif'";
+        if ($divisi_id) {
+            $sql_count .= " AND divisi_id = " . $divisi_id;
+        }
+        $res_count = $conn->query($sql_count);
+        $total_karyawan = $res_count->fetch_assoc()['total'];
+
+        // Ambil data untuk grafik harian
+        $sql_chart = "SELECT 
+                        DAY(a.tanggal) as day,
+                        SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+                        SUM(CASE WHEN a.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+                        SUM(CASE WHEN a.status = 'izin' THEN 1 ELSE 0 END) as izin,
+                        SUM(CASE WHEN a.status = 'alpa' THEN 1 ELSE 0 END) as alpa
+                    FROM hr_absensi a
+                    " . ($divisi_id ? "JOIN hr_karyawan k ON a.karyawan_id = k.id" : "") . "
+                    WHERE MONTH(a.tanggal) = ? AND YEAR(a.tanggal) = ?";
+        
+        if ($divisi_id) {
+            $sql_chart .= " AND k.divisi_id = ?";
+        }
+        
+        $sql_chart .= "
+                    GROUP BY DAY(tanggal) 
+                    ORDER BY day ASC";
+        $stmt_chart = $conn->prepare($sql_chart);
+        if ($divisi_id) $stmt_chart->bind_param("iii", $bulan, $tahun, $divisi_id); else $stmt_chart->bind_param("ii", $bulan, $tahun);
+        $stmt_chart->execute();
+        $chart_data = $stmt_chart->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Ambil Top 5 Karyawan Rajin
+        $sql_top = "SELECT 
+                        k.nama_lengkap, 
+                        k.nip,
+                        COUNT(a.id) as total_hadir,
+                        SEC_TO_TIME(AVG(TIME_TO_SEC(a.jam_masuk))) as avg_masuk,
+                        SEC_TO_TIME(AVG(TIME_TO_SEC(a.jam_keluar))) as avg_pulang
+                    FROM hr_absensi a
+                    JOIN hr_karyawan k ON a.karyawan_id = k.id
+                    WHERE a.status = 'hadir' 
+                      AND MONTH(a.tanggal) = ?
+                      AND YEAR(a.tanggal) = ?";
+        
+        if ($divisi_id) {
+            $sql_top .= " AND k.divisi_id = ?";
+        }
+        
+        $sql_top .= "
+                    GROUP BY a.karyawan_id
+                    ORDER BY total_hadir DESC, avg_masuk ASC
+                    LIMIT 5";
+        $stmt_top = $conn->prepare($sql_top);
+        if ($divisi_id) $stmt_top->bind_param("iii", $bulan, $tahun, $divisi_id); else $stmt_top->bind_param("ii", $bulan, $tahun);
+        $stmt_top->execute();
+        $top_employees = $stmt_top->get_result()->fetch_all(MYSQLI_ASSOC);
+        
+        echo json_encode([
+            'success' => true, 
+            'data' => $data, 
+            'total_karyawan' => $total_karyawan, 
+            'chart_data' => $chart_data,
+            'top_employees' => $top_employees
+        ]);
 
     } elseif ($method === 'POST') {
         $action = $_POST['action'] ?? '';

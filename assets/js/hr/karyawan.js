@@ -175,6 +175,7 @@ function editKaryawan(item) {
     document.getElementById('nama_lengkap').value = item.nama_lengkap;
     document.getElementById('jabatan_id').value = item.jabatan_id;
     document.getElementById('tanggal_masuk').value = item.tanggal_masuk;
+    document.getElementById('tanggal_berakhir_kontrak').value = item.tanggal_berakhir_kontrak || '';
     document.getElementById('status').value = item.status;
     document.getElementById('npwp').value = item.npwp || '';
     document.getElementById('status_ptkp').value = item.status_ptkp || 'TK/0';
@@ -222,16 +223,4 @@ function deleteKaryawan(id) {
                 alert('Gagal menghapus: ' + data.message);
             }
         });
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
 }

@@ -101,53 +101,5 @@ if (!isset($app_name)) {
 <?php $v=date("Ymd"); ?>
 <!-- Main App Logic -->
 <script src="<?= base_url('assets/js/main.js?v='.$v) ?>"></script>
-<script>
-    // Small helper scripts to replace Bootstrap JS functionality
-    function toggleSidebar() {
-        document.getElementById('sidebar').classList.toggle('-translate-x-full');
-        document.getElementById('sidebar-overlay').classList.toggle('hidden');
-    }
-
-    function toggleDropdown(element) {
-        const menu = element.nextElementSibling;
-        menu.classList.toggle('hidden');
-    }
-
-    function toggleCollapse(element) {
-        const content = element.nextElementSibling;
-        const icon = element.querySelector('.bi-chevron-down');
-        content.classList.toggle('hidden');
-        icon.classList.toggle('rotate-180');
-    }
-
-    function openModal(modalId) {
-        document.getElementById(modalId).classList.remove('hidden');
-    }
-
-    function closeModal(modalId) {
-        document.getElementById(modalId).classList.add('hidden');
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        document.querySelectorAll('[data-controller="dropdown"]').forEach(function(dropdown) {
-            if (!dropdown.contains(event.target)) {
-                dropdown.querySelector('.dropdown-menu').classList.add('hidden');
-            }
-        });
-
-        // Inisialisasi Flatpickr untuk modal global yang ada di footer
-        if (typeof flatpickr !== 'undefined') {
-            flatpickr("#recurring-start-date", {
-                dateFormat: "d-m-Y",
-                allowInput: true
-            });
-            flatpickr("#recurring-end-date", {
-                dateFormat: "d-m-Y",
-                allowInput: true
-            });
-        }
-    });
-</script>
 </body>
 </html> 

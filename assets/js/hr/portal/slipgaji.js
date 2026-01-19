@@ -13,7 +13,7 @@ function loadPortalSlipGaji() {
     const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const months = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
-    fetch(`${basePath}/api/portal/slip-gaji?tahun=${tahun}`)
+    fetch(`${basePath}/api/hr/portal/slip-gaji?tahun=${tahun}`)
         .then(response => response.json())
         .then(res => {
             tbody.innerHTML = '';

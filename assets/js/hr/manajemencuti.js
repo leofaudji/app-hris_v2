@@ -13,6 +13,24 @@ function initManajemenCutiPage() {
 
         const setForAllCheckbox = document.getElementById('set-for-all-karyawan');
         if(setForAllCheckbox) setForAllCheckbox.addEventListener('change', toggleJatahKaryawanSelection);
+
+        // --- Inject Tombol Monitoring Kuota ---
+        // Cari tombol action yang sudah ada (misal tombol Atur Jatah atau Tambah Cuti) untuk menentukan lokasi yang tepat
+        const existingActionBtn = document.querySelector('button[onclick*="openJatahCutiModal"]') || document.querySelector('button[onclick*="openPengajuanCutiModal"]');
+        
+        if (existingActionBtn && !document.getElementById('btn-monitoring-kuota')) {
+            const container = existingActionBtn.parentElement;
+            
+            const btnMonitor = document.createElement('button');
+            btnMonitor.id = 'btn-monitoring-kuota';
+            btnMonitor.className = 'inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors';
+            btnMonitor.innerHTML = '<i class="bi bi-list-check mr-2"></i> Monitoring Kuota';
+            btnMonitor.type = 'button';
+            btnMonitor.onclick = openQuotaMonitoringModal;
+            
+            // Sisipkan sebelum tombol yang ditemukan
+            container.insertBefore(btnMonitor, existingActionBtn);
+        }
     }
 }
 
@@ -240,4 +258,88 @@ function formatDate(dateString) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
+}
+
+// --- Fitur Baru: Monitoring Kuota Cuti ---
+function openQuotaMonitoringModal() {
+    // Cek apakah modal sudah ada, jika belum buat baru
+    let modal = document.getElementById('quotaMonitoringModal');
+    if (!modal) {
+        const modalHtml = `
+            <div id="quotaMonitoringModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="document.getElementById('quotaMonitoringModal').classList.add('hidden')"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                    <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+                        <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Monitoring Kuota Cuti Karyawan</h3>
+                            <div class="flex items-center gap-2">
+                                <select id="monitor-tahun" class="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md shadow-sm focus:border-primary focus:ring-primary" onchange="loadQuotaList()">
+                                    ${Array.from({length: 5}, (_, i) => `<option value="${new Date().getFullYear() - i}">${new Date().getFullYear() - i}</option>`).join('')}
+                                </select>
+                                <button type="button" class="text-gray-400 hover:text-gray-500 focus:outline-none" onclick="document.getElementById('quotaMonitoringModal').classList.add('hidden')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Karyawan</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Divisi</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Jatah Awal</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Terpakai</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Pending</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sisa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quota-table-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                        <tr><td colspan="6" class="text-center py-4">Memuat data...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        modal = document.getElementById('quotaMonitoringModal');
+    }
+    
+    modal.classList.remove('hidden');
+    loadQuotaList();
+}
+
+function loadQuotaList() {
+    const tahun = document.getElementById('monitor-tahun').value;
+    const tbody = document.getElementById('quota-table-body');
+    
+    fetch(`${basePath}/api/hr/manajemen-cuti?action=get_quota_list&tahun=${tahun}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if(data.success && data.data.length > 0) {
+                data.data.forEach(item => {
+                    const terpakai = parseInt(item.jatah_awal) - parseInt(item.sisa_jatah);
+                    const pending = parseInt(item.cuti_pending) || 0;
+                    const row = `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                ${item.nama_lengkap}<br><span class="text-xs text-gray-500 font-normal">${item.nip}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${item.nama_divisi || '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 dark:text-white">${item.jatah_awal}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-yellow-600 dark:text-yellow-400">${terpakai}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-600 dark:text-blue-400 font-medium">${pending > 0 ? pending : '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center font-bold ${item.sisa_jatah < 3 ? 'text-red-600' : 'text-green-600'}">${item.sisa_jatah}</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Tidak ada data karyawan aktif.</td></tr>';
+            }
+        });
 }

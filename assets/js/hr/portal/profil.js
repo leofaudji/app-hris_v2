@@ -1,7 +1,7 @@
 function initPortalProfilPage() {
     const container = document.getElementById('profil-content');
     if (container) {
-        fetch(`${basePath}/api/portal/profil`)
+        fetch(`${basePath}/api/hr/portal/profil`)
             .then(response => response.json())
             .then(res => {
                 if (res.success) {

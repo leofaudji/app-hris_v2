@@ -391,6 +391,12 @@ if ($check_col_karyawan_user && $check_col_karyawan_user->num_rows == 0) {
     log_message("Kolom 'user_id' berhasil ditambahkan ke tabel hr_karyawan.");
 }
 
+$check_col_karyawan_kontrak = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'tanggal_berakhir_kontrak'");
+if ($check_col_karyawan_kontrak && $check_col_karyawan_kontrak->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `tanggal_berakhir_kontrak` DATE DEFAULT NULL AFTER `tanggal_masuk`");
+    log_message("Kolom 'tanggal_berakhir_kontrak' berhasil ditambahkan ke tabel hr_karyawan.");
+}
+
 // Insert default settings for Tax & BPJS if not exists
 $default_tax_settings = [
     'ptkp_tk0' => '54000000',

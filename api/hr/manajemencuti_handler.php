@@ -25,20 +25,36 @@ try {
         } elseif ($action === 'get_calendar_events') {
             $start = $_GET['start'];
             $end = $_GET['end'];
+            $divisi_id = !empty($_GET['divisi_id']) ? (int)$_GET['divisi_id'] : null;
 
-            $stmt = $conn->prepare("
-                SELECT 
+            $sql = "
+                SELECT
                     pc.id, 
+                    pc.karyawan_id,
+                    pc.jenis_cuti_id,
                     k.nama_lengkap as title, 
+                    k.nama_lengkap as employee_name,
                     pc.tanggal_mulai as start, 
                     pc.tanggal_selesai as end_date,
-                    jc.nama_jenis
+                    jc.nama_jenis,
+                    pc.keterangan,
+                    pc.jumlah_hari
                 FROM hr_pengajuan_cuti pc
                 JOIN hr_karyawan k ON pc.karyawan_id = k.id
                 JOIN hr_jenis_cuti jc ON pc.jenis_cuti_id = jc.id
-                WHERE pc.status = 'approved' AND pc.tanggal_mulai <= ? AND pc.tanggal_selesai >= ?
-            ");
-            $stmt->bind_param("ss", $end, $start);
+                WHERE pc.status = 'approved' AND pc.tanggal_mulai <= ? AND pc.tanggal_selesai >= ?";
+            
+            $params = [$end, $start];
+            $types = "ss";
+
+            if ($divisi_id) {
+                $sql .= " AND k.divisi_id = ?";
+                $params[] = $divisi_id;
+                $types .= "i";
+            }
+
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
             $stmt->execute();
             $events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -47,11 +63,61 @@ try {
                 $endDate = new DateTime($event['end_date']);
                 $endDate->modify('+1 day');
                 $event['end'] = $endDate->format('Y-m-d');
+                
+                // Assign color based on type
+                $jenis = strtolower($event['nama_jenis']);
+                if (strpos($jenis, 'tahunan') !== false) {
+                    $event['backgroundColor'] = '#3B82F6'; // Blue-500
+                    $event['borderColor'] = '#3B82F6';
+                } elseif (strpos($jenis, 'sakit') !== false) {
+                    $event['backgroundColor'] = '#10B981'; // Emerald-500
+                    $event['borderColor'] = '#10B981';
+                } elseif (strpos($jenis, 'melahirkan') !== false) {
+                    $event['backgroundColor'] = '#8B5CF6'; // Violet-500
+                    $event['borderColor'] = '#8B5CF6';
+                } else {
+                    $event['backgroundColor'] = '#F59E0B'; // Amber-500
+                    $event['borderColor'] = '#F59E0B';
+                }
+
                 $event['title'] = $event['title'] . ' (' . $event['nama_jenis'] . ')';
-                unset($event['end_date'], $event['nama_jenis']); // Clean up
+                unset($event['end_date']); // Clean up
             }
 
             echo json_encode($events);
+        } elseif ($action === 'get_quota_list') {
+            $tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : date('Y');
+            
+            // Ambil data karyawan aktif beserta jatah cutinya untuk tahun yang dipilih
+            // Default jatah 12 jika belum di-set
+            $sql = "SELECT k.id, k.nip, k.nama_lengkap, d.nama_divisi, 
+                           COALESCE(jc.jatah_awal, 12) as jatah_awal, 
+                           COALESCE(jc.sisa_jatah, 12) as sisa_jatah,
+                           (SELECT COALESCE(SUM(pc.jumlah_hari), 0) 
+                            FROM hr_pengajuan_cuti pc 
+                            JOIN hr_jenis_cuti jcuti ON pc.jenis_cuti_id = jcuti.id
+                            WHERE pc.karyawan_id = k.id 
+                              AND pc.status = 'pending' 
+                              AND YEAR(pc.tanggal_mulai) = ?
+                              AND jcuti.mengurangi_jatah_cuti = 1
+                           ) as cuti_pending
+                    FROM hr_karyawan k 
+                    LEFT JOIN hr_divisi d ON k.divisi_id = d.id
+                    LEFT JOIN hr_jatah_cuti jc ON k.id = jc.karyawan_id AND jc.tahun = ?
+                    WHERE k.status = 'aktif'
+                    ORDER BY k.nama_lengkap ASC";
+            
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ii", $tahun, $tahun);
+            $stmt->execute();
+            $data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            
+            echo json_encode(['success' => true, 'data' => $data]);
+        } elseif ($action === 'get_pending_count') {
+            $stmt = $conn->prepare("SELECT COUNT(*) as total FROM hr_pengajuan_cuti WHERE status = 'pending'");
+            $stmt->execute();
+            $result = $stmt->get_result()->fetch_assoc();
+            echo json_encode(['success' => true, 'total' => $result['total']]);
         } else { // list
             $sql = "SELECT pc.*, k.nama_lengkap, jc.nama_jenis FROM hr_pengajuan_cuti pc JOIN hr_karyawan k ON pc.karyawan_id = k.id JOIN hr_jenis_cuti jc ON pc.jenis_cuti_id = jc.id WHERE 1=1";
             $params = [];
@@ -79,6 +145,11 @@ try {
             $tanggal_selesai = $_POST['tanggal_selesai'];
             $keterangan = $_POST['keterangan'];
 
+            if ($id && empty($karyawan_id)) {
+                 // Jika edit tapi karyawan_id kosong (misal disabled field), ambil dari DB
+                 $karyawan_id = $conn->query("SELECT karyawan_id FROM hr_pengajuan_cuti WHERE id = $id")->fetch_assoc()['karyawan_id'];
+            }
+
             if ($tanggal_selesai < $tanggal_mulai) throw new Exception("Tanggal selesai tidak boleh sebelum tanggal mulai.");
 
             $start = new DateTime($tanggal_mulai);
@@ -97,6 +168,33 @@ try {
 
             $conn->begin_transaction();
             try {
+                // --- LOGIKA UPDATE: Revert efek lama jika status Approved ---
+                if ($id) {
+                    $stmt_old = $conn->prepare("SELECT * FROM hr_pengajuan_cuti WHERE id = ? FOR UPDATE");
+                    $stmt_old->bind_param("i", $id);
+                    $stmt_old->execute();
+                    $old_data = $stmt_old->get_result()->fetch_assoc();
+
+                    if ($old_data && $old_data['status'] === 'approved') {
+                        // 1. Kembalikan Jatah Cuti Lama
+                        $stmt_jenis_old = $conn->prepare("SELECT mengurangi_jatah_cuti FROM hr_jenis_cuti WHERE id = ?");
+                        $stmt_jenis_old->bind_param("i", $old_data['jenis_cuti_id']);
+                        $stmt_jenis_old->execute();
+                        $mengurangi_old = $stmt_jenis_old->get_result()->fetch_assoc()['mengurangi_jatah_cuti'] ?? 0;
+
+                        if ($mengurangi_old) {
+                            $tahun_old = date('Y', strtotime($old_data['tanggal_mulai']));
+                            $conn->query("UPDATE hr_jatah_cuti SET sisa_jatah = sisa_jatah + {$old_data['jumlah_hari']} WHERE karyawan_id = {$old_data['karyawan_id']} AND tahun = $tahun_old");
+                        }
+
+                        // 2. Hapus Absensi Lama (Hapus berdasarkan range tanggal dan karyawan)
+                        $stmt_del_abs = $conn->prepare("DELETE FROM hr_absensi WHERE karyawan_id = ? AND tanggal BETWEEN ? AND ? AND status = 'izin'");
+                        $stmt_del_abs->bind_param("iss", $old_data['karyawan_id'], $old_data['tanggal_mulai'], $old_data['tanggal_selesai']);
+                        $stmt_del_abs->execute();
+                    }
+                }
+                // ------------------------------------------------------------
+
                 // Cek apakah jenis cuti mengurangi jatah
                 $stmt_jenis = $conn->prepare("SELECT mengurangi_jatah_cuti FROM hr_jenis_cuti WHERE id = ?");
                 $stmt_jenis->bind_param("i", $jenis_cuti_id);
@@ -125,12 +223,36 @@ try {
                     $conn->query("UPDATE hr_jatah_cuti SET sisa_jatah = $sisa_baru WHERE karyawan_id = $karyawan_id AND tahun = $tahun_cuti");
                 }
 
-                $stmt = $conn->prepare("INSERT INTO hr_pengajuan_cuti (karyawan_id, jenis_cuti_id, tanggal_mulai, tanggal_selesai, jumlah_hari, keterangan) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("iissis", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan);
-                $stmt->execute();
+                if ($id) {
+                    // Update Data
+                    $stmt = $conn->prepare("UPDATE hr_pengajuan_cuti SET karyawan_id=?, jenis_cuti_id=?, tanggal_mulai=?, tanggal_selesai=?, jumlah_hari=?, keterangan=? WHERE id=?");
+                    $stmt->bind_param("iissisi", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan, $id);
+                    $stmt->execute();
+                    
+                    // Jika status sebelumnya approved, buat ulang absensi baru
+                    if (isset($old_data) && $old_data['status'] === 'approved') {
+                        $stmt_absensi = $conn->prepare("INSERT INTO hr_absensi (karyawan_id, tanggal, status, keterangan) VALUES (?, ?, 'izin', ?)");
+                        $keterangan_absensi = "Cuti Disetujui: " . $keterangan;
+                        foreach ($dateRange as $date) {
+                            if ($date->format('N') < 6) {
+                                $tanggal_str = $date->format('Y-m-d');
+                                $stmt_absensi->bind_param("iss", $karyawan_id, $tanggal_str, $keterangan_absensi);
+                                $stmt_absensi->execute();
+                            }
+                        }
+                    }
+                    
+                    $msg = 'Data cuti berhasil diperbarui.';
+                } else {
+                    // Insert Data Baru
+                    $stmt = $conn->prepare("INSERT INTO hr_pengajuan_cuti (karyawan_id, jenis_cuti_id, tanggal_mulai, tanggal_selesai, jumlah_hari, keterangan) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iissis", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan);
+                    $stmt->execute();
+                    $msg = 'Pengajuan cuti berhasil disimpan.';
+                }
 
                 $conn->commit();
-                echo json_encode(['success' => true, 'message' => 'Pengajuan cuti berhasil disimpan.']);
+                echo json_encode(['success' => true, 'message' => $msg]);
             } catch (Exception $e) {
                 $conn->rollback();
                 throw $e;

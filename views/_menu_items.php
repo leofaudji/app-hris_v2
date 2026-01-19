@@ -39,46 +39,100 @@ if (!$is_admin) {
     }
 }
 
-function render_menu_item($url, $icon, $text) {
-    echo '<a href="' . base_url($url) . '" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 group">
-            <i class="' . $icon . ' mr-4 text-lg text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors"></i>
-            <span>' . $text . '</span>
-          </a>';
+// Pastikan variabel layout_mode tersedia
+if (!isset($layout_mode)) $layout_mode = 'sidebar';
+
+if (!function_exists('render_menu_item')) {
+function render_menu_item($url, $icon, $text, $key = '', $layout = 'sidebar') {
+    $badgeHtml = $key ? '<span id="badge-' . $key . '" class="ml-auto hidden bg-red-100 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300 shadow-sm"></span>' : '';
+    
+    if ($layout === 'icon_menu') {
+        $colors = [
+            ['bg' => 'bg-indigo-50 dark:bg-indigo-900/20', 'text' => 'text-indigo-600 dark:text-indigo-300'],
+            ['bg' => 'bg-emerald-50 dark:bg-emerald-900/20', 'text' => 'text-emerald-600 dark:text-emerald-300'],
+            ['bg' => 'bg-sky-50 dark:bg-sky-900/20', 'text' => 'text-sky-600 dark:text-sky-300'],
+            ['bg' => 'bg-amber-50 dark:bg-amber-900/20', 'text' => 'text-amber-600 dark:text-amber-300'],
+            ['bg' => 'bg-rose-50 dark:bg-rose-900/20', 'text' => 'text-rose-600 dark:text-rose-300'],
+            ['bg' => 'bg-violet-50 dark:bg-violet-900/20', 'text' => 'text-violet-600 dark:text-violet-300'],
+            ['bg' => 'bg-teal-50 dark:bg-teal-900/20', 'text' => 'text-teal-600 dark:text-teal-300'],
+            ['bg' => 'bg-slate-100 dark:bg-slate-800', 'text' => 'text-slate-600 dark:text-slate-300'],
+        ];
+        $color = $colors[crc32($key) % count($colors)];
+
+        echo '<a href="' . base_url($url) . '" onclick="closeDropdown(this)" class="flex flex-col items-center justify-center p-3 text-center rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200 group">
+                <div class="w-12 h-12 flex items-center justify-center ' . $color['bg'] . ' ' . $color['text'] . ' rounded-2xl mb-2 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-200">
+                    <i class="' . $icon . ' text-2xl"></i>
+                </div>
+                <span class="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight">' . $text . '</span>
+              </a>';
+    } else {
+        echo '<a href="' . base_url($url) . '" class="flex items-center px-3 py-2 text-gray-700 rounded-md dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 group transition-all duration-200">
+                <i class="' . $icon . ' flex-shrink-0 w-6 h-6 text-lg text-gray-500 transition duration-75 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-white flex items-center justify-center"></i>
+                <span class="ml-3 flex-1 whitespace-nowrap font-medium text-sm sidebar-text">' . $text . '</span>
+                ' . $badgeHtml . '
+              </a>';
+    }
+}
 }
 
-function render_collapsible_menu($id, $icon, $text, $items) {
+if (!function_exists('render_collapsible_menu')) {
+function render_collapsible_menu($id, $icon, $text, $items, $layout = 'sidebar') {
     $items_html = '';
-    $total = count($items);
-    foreach ($items as $index => $item) {
-        $is_last = ($index === $total - 1);
-        // Garis vertikal: jika item terakhir, tingginya setengah (h-1/2) untuk membentuk sudut L
-        $vertical_line_height = $is_last ? 'h-1/2' : 'h-full';
-        
-        $items_html .= '
-        <div class="relative">
-            <!-- Garis Vertikal -->
-            <div class="absolute left-6 top-0 ' . $vertical_line_height . ' w-px bg-gray-300 dark:bg-gray-600"></div>
-            <!-- Garis Horizontal -->
-            <div class="absolute left-6 top-1/2 w-5 h-px bg-gray-300 dark:bg-gray-600"></div>
-            
-            <a href="' . base_url($item['url']) . '" class="flex items-center ml-11 px-3 py-2 text-sm font-normal rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-primary dark:hover:text-primary-400 transition-colors">
-                ' . $item['label'] . '
-            </a>
-        </div>';
-    }
+    
+    if ($layout === 'icon_menu') {
+        // Render Header for Group
+        echo '<div class="col-span-3 md:col-span-4 mt-2 mb-1 border-b border-gray-100 dark:border-gray-700 pb-1">
+                <span class="text-xs font-bold text-gray-500 uppercase">' . $text . '</span>
+              </div>';
+        // Render Children as Grid Items
+        foreach ($items as $item) {
+            // Gunakan logika warna yang sama untuk konsistensi
+            $colors = [
+                ['bg' => 'bg-indigo-50 dark:bg-indigo-900/20', 'text' => 'text-indigo-600 dark:text-indigo-300'],
+                ['bg' => 'bg-emerald-50 dark:bg-emerald-900/20', 'text' => 'text-emerald-600 dark:text-emerald-300'],
+                ['bg' => 'bg-sky-50 dark:bg-sky-900/20', 'text' => 'text-sky-600 dark:text-sky-300'],
+                ['bg' => 'bg-amber-50 dark:bg-amber-900/20', 'text' => 'text-amber-600 dark:text-amber-300'],
+                ['bg' => 'bg-rose-50 dark:bg-rose-900/20', 'text' => 'text-rose-600 dark:text-rose-300'],
+                ['bg' => 'bg-violet-50 dark:bg-violet-900/20', 'text' => 'text-violet-600 dark:text-violet-300'],
+                ['bg' => 'bg-teal-50 dark:bg-teal-900/20', 'text' => 'text-teal-600 dark:text-teal-300'],
+                ['bg' => 'bg-slate-100 dark:bg-slate-800', 'text' => 'text-slate-600 dark:text-slate-300'],
+            ];
+            $color = $colors[crc32($item['key']) % count($colors)];
 
-    echo '<div data-controller="collapse">
-            <button onclick="toggleCollapse(this)" class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 group">
-                <span class="flex items-center">
-                    <i class="' . $icon . ' mr-4 text-lg text-gray-500 dark:text-gray-400 group-hover:text-primary transition-colors"></i>
-                    <span>' . $text . '</span>
-                </span>
-                <i class="bi bi-chevron-down transform transition-transform duration-200"></i>
-            </button>
-            <div class="collapse-content hidden">
-                ' . $items_html . '
-            </div>
-          </div>';
+            echo '<a href="' . base_url($item['url']) . '" onclick="closeDropdown(this)" class="flex flex-col items-center justify-center p-3 text-center rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200 group">
+                    <div class="w-12 h-12 flex items-center justify-center ' . $color['bg'] . ' ' . $color['text'] . ' rounded-2xl mb-2 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-200">
+                        <i class="' . ($item['icon'] ?? 'bi bi-circle') . ' text-2xl"></i>
+                    </div>
+                    <span class="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight">' . $item['label'] . '</span>
+                  </a>';
+        }
+    } else {
+        foreach ($items as $item) {
+            $items_html .= '
+            <li>
+                <a href="' . base_url($item['url']) . '" class="flex items-center w-full py-2 pr-3 pl-4 text-sm font-normal text-gray-600 rounded-md transition duration-75 group hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
+                    <span class="sidebar-text">' . $item['label'] . '</span>
+                    <span id="badge-' . $item['key'] . '" class="ml-auto hidden bg-red-100 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300 shadow-sm"></span>
+                </a>
+            </li>';
+        }
+
+        echo '<div data-controller="collapse">
+                <button type="button" onclick="toggleCollapse(this)" class="flex items-center justify-between w-full px-3 py-2 text-gray-700 rounded-md transition-all duration-200 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                    <span class="flex items-center">
+                        <i class="' . $icon . ' flex-shrink-0 w-6 h-6 text-lg text-gray-500 transition duration-75 group-hover:text-primary dark:text-gray-400 dark:group-hover:text-white flex items-center justify-center"></i>
+                        <span class="ml-3 flex-1 whitespace-nowrap text-left font-medium text-sm sidebar-text">' . $text . '</span>
+                    </span>
+                    <i class="bi bi-chevron-down w-5 h-5 text-xs flex items-center justify-center transition-transform duration-200 sidebar-text"></i>
+                </button>
+                <div class="pl-4 ml-6 mt-1 relative before:content-[\'\'] before:absolute before:left-0 before:top-0 before:bottom-0 before:border-l before:border-dashed before:border-gray-300 dark:before:border-gray-600 sidebar-text">
+                    <ul class="collapse-content space-y-1">
+                        ' . $items_html . '
+                    </ul>
+                </div>
+              </div>';
+    }
+}
 }
 
 function is_menu_allowed($key, $allowed_menus, $is_admin) {
@@ -92,7 +146,18 @@ function is_menu_allowed($key, $allowed_menus, $is_admin) {
     <?php
     // Skip jika header
     if ($item['type'] === 'header') {
-        echo '<div class="pt-4 pb-2 px-4"><p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">' . $item['label'] . '</p></div>';
+        // Hanya tampilkan header di sidebar, atau bisa diabaikan di top nav
+        if ($layout_mode === 'icon_menu') {
+             echo '<div class="col-span-3 md:col-span-4 mt-3 mb-1 px-1">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">' . $item['label'] . '</p>
+                  </div>';
+        }
+        elseif ($layout_mode === 'sidebar') {
+            echo '<div class="mt-4 mb-2 px-3">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider sidebar-text">' . $item['label'] . '</p>
+                    <div class="sidebar-header-divider"></div>
+                  </div>';
+        }
         continue;
     }
 
@@ -102,7 +167,7 @@ function is_menu_allowed($key, $allowed_menus, $is_admin) {
     }
 
     if ($item['type'] === 'item') {
-        render_menu_item($item['url'], $item['icon'], $item['label']);
+        render_menu_item($item['url'], $item['icon'], $item['label'], $item['key'], $layout_mode);
     } elseif ($item['type'] === 'collapse') {
         // Filter children based on permissions
         $visible_children = [];
@@ -115,7 +180,7 @@ function is_menu_allowed($key, $allowed_menus, $is_admin) {
         
         // Only render parent if it has visible children
         if (!empty($visible_children)) {
-            render_collapsible_menu($item['key'] . '-menu', $item['icon'], $item['label'], $visible_children);
+            render_collapsible_menu($item['key'] . '-menu', $item['icon'], $item['label'], $visible_children, $layout_mode);
         }
     }
     ?>

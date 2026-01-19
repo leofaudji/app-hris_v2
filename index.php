@@ -88,6 +88,7 @@ $router->post('/roles', 'pages/roles.php', ['auth', 'admin']);
 $router->get('/hr/karyawan', 'pages/hr/karyawan.php', ['auth']);
 $router->get('/hr/jabatan', 'pages/hr/jabatan.php', ['auth']);
 $router->get('/hr/divisi', 'pages/hr/divisi.php', ['auth']);
+$router->get('/hr/master-dashboard', 'pages/hr/master_dashboard.php', ['auth']);
 $router->get('/hr/kantor', 'pages/hr/kantor.php', ['auth']);
 $router->get('/hr/golongan-absensi', 'pages/hr/golonganabsensi.php', ['auth']);
 $router->get('/hr/jadwal-kerja', 'pages/hr/jadwalkerja.php', ['auth']);
@@ -99,14 +100,15 @@ $router->get('/hr/kalender-cuti', 'pages/hr/kalendercuti.php', ['auth']);
 $router->get('/hr/komponen-gaji', 'pages/hr/komponengaji.php', ['auth']);
 $router->get('/hr/golongan-gaji', 'pages/hr/golongangaji.php', ['auth']);
 $router->get('/hr/penggajian', 'pages/hr/penggajian.php', ['auth']);
+$router->get('/hr/payroll-dashboard', 'pages/hr/payroll_dashboard.php', ['auth']);
 $router->get('/hr/laporan', 'pages/hr/laporan.php', ['auth']);
 $router->get('/hr/pengaturan-pajak', 'pages/hr/pengaturan_pajak.php', ['auth']);
 
 // --- Rute Portal Karyawan ---
-$router->get('/portal/dashboard', 'pages/portal/dashboard.php', ['auth']);
-$router->get('/portal/profil', 'pages/portal/profil.php', ['auth']);
-$router->get('/portal/absensi', 'pages/portal/absensi.php', ['auth']);
-$router->get('/portal/slip-gaji', 'pages/portal/slipgaji.php', ['auth']);
+$router->get('/hr/portal/dashboard', 'pages/hr/portal/dashboard.php', ['auth']);
+$router->get('/hr/portal/profil', 'pages/hr/portal/profil.php', ['auth']);
+$router->get('/hr/portal/absensi', 'pages/hr/portal/absensi.php', ['auth']);
+$router->get('/hr/portal/slip-gaji', 'pages/hr/portal/slipgaji.php', ['auth']);
 
 // --- Rute API (Untuk proses data via AJAX) ---
 // Rute ini akan dipanggil oleh JavaScript untuk mendapatkan, menambah, mengubah, dan menghapus data tanpa reload halaman.
@@ -202,20 +204,22 @@ $router->get('/api/hr/golongan-gaji', 'api/hr/golongangaji_handler.php', ['auth'
 $router->post('/api/hr/golongan-gaji', 'api/hr/golongangaji_handler.php', ['auth']);
 $router->get('/api/hr/divisi', 'api/hr/divisi_handler.php', ['auth']);
 $router->post('/api/hr/divisi', 'api/hr/divisi_handler.php', ['auth']);
+$router->get('/api/hr/master-dashboard', 'api/hr/master_dashboard_handler.php', ['auth']);
 $router->get('/api/hr/absensi', 'api/hr/absensi_handler.php', ['auth']);
 $router->post('/api/hr/absensi', 'api/hr/absensi_handler.php', ['auth']);
 $router->get('/api/hr/penggajian', 'api/hr/penggajian_handler.php', ['auth']);
 $router->post('/api/hr/penggajian', 'api/hr/penggajian_handler.php', ['auth']);
+$router->get('/api/hr/payroll-dashboard', 'api/hr/payroll_dashboard_handler.php', ['auth']);
 $router->get('/api/hr/laporan', 'api/hr/laporan_handler.php', ['auth']);
 $router->post('/api/hr/laporan', 'api/hr/laporan_handler.php', ['auth']);
 $router->get('/api/hr/pengaturan-pajak', 'api/hr/pengaturan_pajak_handler.php', ['auth']);
 $router->post('/api/hr/pengaturan-pajak', 'api/hr/pengaturan_pajak_handler.php', ['auth']);
 
 // API Portal Karyawan
-$router->get('/api/portal/dashboard', 'api/portal/dashboard_handler.php', ['auth']);
-$router->get('/api/portal/profil', 'api/portal/profil_handler.php', ['auth']);
-$router->get('/api/portal/absensi', 'api/portal/absensi_handler.php', ['auth']);
-$router->get('/api/portal/slip-gaji', 'api/portal/slipgaji_handler.php', ['auth']);
+$router->get('/api/hr/portal/dashboard', 'api/hr/portal/dashboard_handler.php', ['auth']);
+$router->get('/api/hr/portal/profil', 'api/hr/portal/profil_handler.php', ['auth']);
+$router->get('/api/hr/portal/absensi', 'api/hr/portal/absensi_handler.php', ['auth']);
+$router->get('/api/hr/portal/slip-gaji', 'api/hr/portal/slipgaji_handler.php', ['auth']);
 
 
 // Jalankan router

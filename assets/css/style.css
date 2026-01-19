@@ -43,11 +43,6 @@ body {
 /* --- Sidebar --- */
 .sidebar {
     width: var(--sidebar-width);
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 1000;
     background-color: var(--sidebar-bg);
     transition: all 0.3s;
     overflow-y: hidden; /* Sembunyikan scrollbar secara default */
@@ -128,6 +123,36 @@ body:not(.dark-mode) .sidebar-nav .nav-link.active {
     background-color: rgba(0, 122, 255, 0.1);
 }
 
+/* New, more modern active link style */
+.sidebar a.active {
+    background-color: var(--theme-color, var(--cf-blue));
+    color: white !important; /* Use important to override other text colors */
+    font-weight: 600;
+    box-shadow: 0 4px 8px -2px rgba(0, 122, 255, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+}
+.sidebar a.active i {
+    color: white !important;
+}
+.dark-mode .sidebar a.active {
+    background-color: var(--theme-color, var(--cf-blue));
+    box-shadow: 0 4px 10px -2px rgba(10, 132, 255, 0.4);
+}
+
+/* Interactive Hover Effect */
+.sidebar a:not(.active):hover,
+.sidebar button:not(.active-parent):hover {
+    transform: translateX(5px);
+}
+
+/* Style for the parent of an active sub-menu item */
+.sidebar button.active-parent {
+    color: var(--theme-color, var(--cf-blue));
+    font-weight: 600;
+}
+.sidebar button.active-parent i {
+    color: var(--theme-color, var(--cf-blue));
+}
+
 .sidebar-nav .nav-link .bi {
     margin-right: 0.75rem;
     font-size: 1.1rem;
@@ -143,6 +168,82 @@ body:not(.dark-mode) .sidebar-nav .nav-link.active {
     letter-spacing: .05rem;
 }
 
+.sidebar-header-divider {
+    display: none;
+}
+
+/* --- Sidebar Minimized State (Desktop) --- */
+@media (min-width: 1024px) {
+    body.sidebar-minimized .sidebar {
+        width: 5rem; /* w-20 */
+    }
+    
+    body.sidebar-minimized .sidebar-text {
+        display: none !important;
+    }
+
+    body.sidebar-minimized .sidebar-header-divider {
+        display: block;
+        height: 1px;
+        background-color: var(--cf-border-color);
+        margin: 0.75rem auto;
+        width: 1.5rem; /* Garis pendek di tengah */
+    }
+
+    body.sidebar-minimized .sidebar-header {
+        display: none;
+    }
+    
+    /* Center icons when minimized */
+    body.sidebar-minimized .sidebar-nav .nav-link {
+        padding-left: 0;
+        padding-right: 0;
+        justify-content: center;
+    }
+    
+    body.sidebar-minimized .sidebar-nav .nav-link i {
+        margin-right: 0;
+    }
+
+    /* Center collapsible menu buttons when minimized */
+    body.sidebar-minimized [data-controller="collapse"] > button {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /* Hide search input but keep icon centered */
+    body.sidebar-minimized #sidebar-search-container input {
+        display: none;
+    }
+    body.sidebar-minimized #sidebar-search-container {
+        padding: 0.75rem;
+        justify-content: center;
+        display: flex;
+    }
+    body.sidebar-minimized #sidebar-search-container span {
+        position: static;
+        padding-left: 0;
+    }
+    
+    /* Auto expand on hover (Optional, uncomment to enable) */
+    /* 
+    body.sidebar-minimized .sidebar:hover {
+        width: var(--sidebar-width);
+    }
+    body.sidebar-minimized .sidebar:hover .sidebar-text {
+        display: inline;
+    } 
+    */
+}
+
+/* --- Sidebar Collapse Animation --- */
+.collapse-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+
 /* --- Sidebar Collapsed State --- */
 body.sidebar-collapsed .sidebar {
     left: calc(-1 * var(--sidebar-width));
@@ -155,9 +256,6 @@ body.sidebar-collapsed .content-wrapper {
 
 /* --- Content Area --- */
 .content-wrapper {
-    margin-left: var(--sidebar-width);
-    width: calc(100% - var(--sidebar-width));
-    transition: margin-left 0.3s, width 0.3s;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -510,3 +608,43 @@ body.dark-mode .text-muted {
     color: var(--theme-color, #007aff);
 }
 
+/* --- Icon Menu Layout (Google Apps Style) --- */
+html.layout-icon-menu .sidebar {
+    display: none !important;
+}
+
+html.layout-icon-menu .content-wrapper {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+/* Mobile Specific Adjustments for Waffle Menu */
+@media (max-width: 768px) {
+    html.layout-icon-menu .waffle-menu-dropdown {
+        position: fixed !important;
+        bottom: 1rem !important; /* Jarak dari bawah */
+        left: 1rem !important;   /* Jarak dari kiri */
+        right: 1rem !important;  /* Jarak dari kanan */
+        top: auto !important; /* Override top positioning */
+        width: auto !important;  /* Lebar menyesuaikan margin */
+        max-width: 100% !important;
+        margin: 0 !important;
+        border-radius: 1.5rem !important; /* Sudut membulat penuh */
+        max-height: calc(100vh - 6rem) !important; /* Batasi tinggi agar tidak menabrak header */
+        z-index: 1060 !important; /* Di atas segalanya (seperti modal) */
+        transform-origin: bottom center;
+        animation: bottomSheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        /* Shadow untuk kartu + Overlay gelap di belakang */
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 100vmax rgba(0,0,0,0.5) !important;
+    }
+
+    @keyframes bottomSheetSlideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    /* Disable standard dropdown animation on mobile to avoid conflict */
+    html.layout-icon-menu .waffle-menu-dropdown.dropdown-animate-in {
+        animation: bottomSheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+}

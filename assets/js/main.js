@@ -120,26 +120,27 @@ function updateActiveSidebarLink(path) {
         const cleanLinkPath = linkPath.length > 1 ? linkPath.replace(/\/$/, "") : linkPath;
 
         // Reset all links first
-        link.classList.remove('bg-primary-50', 'dark:bg-gray-700', 'text-primary', 'font-semibold');
+        link.classList.remove('active');
         const parentCollapseTrigger = link.closest('[data-controller="collapse"]')?.querySelector('button');
+        
         if (parentCollapseTrigger) {
-            parentCollapseTrigger.classList.remove('text-primary', 'font-semibold');
+            parentCollapseTrigger.classList.remove('active-parent');
         }
 
         if (cleanLinkPath === cleanCurrentPath) {
             // Style the active link
-            link.classList.add('bg-primary-50', 'dark:bg-gray-700', 'text-primary', 'font-semibold');
+            link.classList.add('active');
 
             // Check if it's inside a collapsible menu
             const parentCollapseContent = link.closest('.collapse-content');
             if (parentCollapseContent) {
                 // Show the content
-                parentCollapseContent.classList.remove('hidden');
-                
+                parentCollapseContent.style.maxHeight = parentCollapseContent.scrollHeight + 'px';
+
                 // Style the trigger button
                 const triggerButton = parentCollapseContent.previousElementSibling;
                 if (triggerButton) {
-                    triggerButton.classList.add('text-primary', 'font-semibold');
+                    triggerButton.classList.add('active-parent');
                     const icon = triggerButton.querySelector('.bi-chevron-down');
                     if (icon) icon.classList.add('rotate-180');
                 }
@@ -245,232 +246,87 @@ async function navigate(url, pushState = true) {
  * @param {string} path The current page's path.
  */
 function runPageScripts(path) {
-    // Normalisasi path untuk mencocokkan rute, menghapus base path dan query string.
     const cleanPath = path.replace(basePath, '').split('?')[0].replace(/\/$/, "") || '/';
 
-    if (cleanPath === '/dashboard') {
-        loadScript(`${basePath}/assets/js/dashboard.js`)
-            .then(() => initDashboardPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/transaksi') {
-        loadScript(`${basePath}/assets/js/transaksi.js`)
-            .then(() => initTransaksiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/entri-jurnal') {
-        loadScript(`${basePath}/assets/js/entri_jurnal.js`)
-            .then(() => initEntriJurnalPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/coa') {
-        loadScript(`${basePath}/assets/js/coa.js`)
-            .then(() => initCoaPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/saldo-awal') {
-        loadScript(`${basePath}/assets/js/saldoawal.js`)
-            .then(() => initSaldoAwalPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan') {
-        loadScript(`${basePath}/assets/js/laporan.js`)
-            .then(() => initLaporanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-harian') {
-        loadScript(`${basePath}/assets/js/laporan_harian.js`)
-            .then(() => initLaporanHarianPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-stok') {
-        loadScript(`${basePath}/assets/js/laporan_stok.js`)
-            .then(() => initLaporanStokPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/buku-besar') {
-        loadScript(`${basePath}/assets/js/buku_besar.js`)
-            .then(() => initBukuBesarPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/settings') {
-        loadScript(`${basePath}/assets/js/settings.js`)
-            .then(() => initSettingsPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/my-profile/change-password') {
-        loadScript(`${basePath}/assets/js/myprofile.js`)
-            .then(() => initMyProfilePage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/daftar-jurnal') {
-        loadScript(`${basePath}/assets/js/daftar_jurnal.js`)
-            .then(() => initDaftarJurnalPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/konsinyasi') {
-        loadScript(`${basePath}/assets/js/konsinyasi.js`)
-            .then(() => initKonsinyasiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/transaksi-berulang') {
-        loadScript(`${basePath}/assets/js/transaksi_berulang.js`)
-            .then(() => initTransaksiBerulangPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-laba-ditahan') {
-        loadScript(`${basePath}/assets/js/laporan_laba_ditahan.js`)
-            .then(() => initLaporanLabaDitahanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/tutup-buku') {
-        loadScript(`${basePath}/assets/js/tutupbuku.js`)
-            .then(() => initTutupBukuPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/analisis-rasio') {
-        loadScript(`${basePath}/assets/js/analisis_rasio.js`)
-            .then(() => initAnalisisRasioPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/activity-log') {
-        loadScript(`${basePath}/assets/js/activity_log.js`)
-            .then(() => initActivityLogPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/anggaran') {
-        loadScript(`${basePath}/assets/js/anggaran.js`)
-            .then(() => initAnggaranPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/users') {
-        loadScript(`${basePath}/assets/js/users.js`)
-            .then(() => initUsersPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-pertumbuhan-laba') {
-        loadScript(`${basePath}/assets/js/laporan_pertumbuhan_laba.js`)
-            .then(() => initLaporanPertumbuhanLabaPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/histori-rekonsiliasi') {
-        loadScript(`${basePath}/assets/js/histori_rekonsiliasi.js`)
-            .then(() => initHistoriRekonsiliasiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/rekonsiliasi-bank') {
-        loadScript(`${basePath}/assets/js/rekonsiliasi_bank.js`)
-            .then(() => initRekonsiliasiBankPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/aset-tetap') {
-        loadScript(`${basePath}/assets/js/aset_tetap.js`)
-            .then(() => initAsetTetapPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/pembelian') {
-        loadScript(`${basePath}/assets/js/pembelian.js`)
-            .then(() => initPembelianPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/stok') {
-        loadScript(`${basePath}/assets/js/stok.js`)
-            .then(() => initStokPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/stok-opname') {
-        loadScript(`${basePath}/assets/js/stok_opname.js`)
-            .then(() => initStokOpnamePage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-kartu-stok') {
-        loadScript(`${basePath}/assets/js/laporan_kartu_stok.js`)
-            .then(() => initLaporanKartuStokPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-persediaan') {
-        loadScript(`${basePath}/assets/js/laporan_persediaan.js`)
-            .then(() => initLaporanPersediaanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-pertumbuhan-persediaan') {
-        loadScript(`${basePath}/assets/js/laporan_pertumbuhan_persediaan.js`)
-            .then(() => initLaporanPertumbuhanPersediaanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-penjualan-item') {
-        loadScript(`${basePath}/assets/js/laporan_penjualan_item.js`)
-            .then(() => initLaporanPenjualanItemPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/laporan-penjualan') {
-        loadScript(`${basePath}/assets/js/laporan_penjualan.js`)
-            .then(() => initLaporanPenjualanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/penjualan') {
-        loadScript(`${basePath}/assets/js/penjualan.js`)
-            .then(() => initPenjualanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/neraca-saldo') {
-        loadScript(`${basePath}/assets/js/neraca_saldo.js`)
-            .then(() => initNeracaSaldoPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/roles') {
-        loadScript(`${basePath}/assets/js/roles.js`)
-            .then(() => initRolesPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/karyawan') {
-        loadScript(`${basePath}/assets/js/hr/karyawan.js`)
-            .then(() => initKaryawanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/jabatan') {
-        loadScript(`${basePath}/assets/js/hr/jabatan.js`)
-            .then(() => initJabatanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/divisi') {
-        loadScript(`${basePath}/assets/js/hr/divisi.js`)
-            .then(() => initDivisiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/kantor') {
-        loadScript(`${basePath}/assets/js/hr/kantor.js`)
-            .then(() => initKantorPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/golongan-absensi') {
-        loadScript(`${basePath}/assets/js/hr/golonganabsensi.js`)
-            .then(() => initGolonganAbsensiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/status-absensi') {
-        loadScript(`${basePath}/assets/js/hr/statusabsensi.js`)
-            .then(() => initStatusAbsensiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/jadwal-kerja') {
-        loadScript(`${basePath}/assets/js/hr/jadwalkerja.js`)
-            .then(() => initJadwalKerjaPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/absensi') {
-        loadScript(`${basePath}/assets/js/hr/absensi.js`)
-            .then(() => initAbsensiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/jenis-cuti') {
-        loadScript(`${basePath}/assets/js/hr/jeniscuti.js`)
-            .then(() => initJenisCutiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/manajemen-cuti') {
-        loadScript(`${basePath}/assets/js/hr/manajemencuti.js`)
-            .then(() => initManajemenCutiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/kalender-cuti') {
-        loadScript(`${basePath}/assets/js/hr/kalendercuti.js`)
-            .then(() => initKalenderCutiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/portal/dashboard') {
-        loadScript(`${basePath}/assets/js/portal/dashboard.js`)
-            .then(() => initPortalDashboardPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/portal/profil') {
-        loadScript(`${basePath}/assets/js/portal/profil.js`)
-            .then(() => initPortalProfilPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/portal/absensi') {
-        loadScript(`${basePath}/assets/js/portal/absensi.js`)
-            .then(() => initPortalAbsensiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/portal/slip-gaji') {
-        loadScript(`${basePath}/assets/js/portal/slipgaji.js`)
-            .then(() => initPortalSlipGajiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/komponen-gaji') {
-        loadScript(`${basePath}/assets/js/hr/komponengaji.js`)
-            .then(() => initKomponenGajiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/golongan-gaji') {
-        loadScript(`${basePath}/assets/js/hr/golongangaji.js`)
-            .then(() => initGolonganGajiPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/penggajian') {
-        loadScript(`${basePath}/assets/js/hr/penggajian.js`)
-            .then(() => initPenggajianPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/laporan') {
-        loadScript(`${basePath}/assets/js/hr/laporan.js`)
-            .then(() => initLaporanPage())
-            .catch(err => console.error(err));
-    } else if (cleanPath === '/hr/pengaturan-pajak') {
-        loadScript(`${basePath}/assets/js/hr/pengaturan_pajak.js`)
-            .then(() => initPengaturanPajakPage())
-            .catch(err => console.error(err));
-    }else if (cleanPath === '/buku-panduan') {        // Halaman ini statis dan tidak memerlukan inisialisasi JavaScript.
-        // Cukup daftarkan agar tidak error dan hentikan eksekusi.
-        return; 
+    const routeMap = {
+        '/': { script: 'dashboard.js', init: 'initDashboardPage' },
+        '/dashboard': { script: 'dashboard.js', init: 'initDashboardPage' },
+        '/transaksi': { script: 'transaksi.js', init: 'initTransaksiPage' },
+        '/entri-jurnal': { script: 'entri_jurnal.js', init: 'initEntriJurnalPage' },
+        '/coa': { script: 'coa.js', init: 'initCoaPage' },
+        '/saldo-awal': { script: 'saldoawal.js', init: 'initSaldoAwalPage' },
+        '/laporan': { script: 'laporan.js', init: 'initLaporanPage' },
+        '/laporan-harian': { script: 'laporan_harian.js', init: 'initLaporanHarianPage' },
+        '/laporan-stok': { script: 'laporan_stok.js', init: 'initLaporanStokPage' },
+        '/buku-besar': { script: 'buku_besar.js', init: 'initBukuBesarPage' },
+        '/settings': { script: 'settings.js', init: 'initSettingsPage' },
+        '/my-profile/change-password': { script: 'myprofile.js', init: 'initMyProfilePage' },
+        '/daftar-jurnal': { script: 'daftar_jurnal.js', init: 'initDaftarJurnalPage' },
+        '/konsinyasi': { script: 'konsinyasi.js', init: 'initKonsinyasiPage' },
+        '/transaksi-berulang': { script: 'transaksi_berulang.js', init: 'initTransaksiBerulangPage' },
+        '/laporan-laba-ditahan': { script: 'laporan_laba_ditahan.js', init: 'initLaporanLabaDitahanPage' },
+        '/tutup-buku': { script: 'tutupbuku.js', init: 'initTutupBukuPage' },
+        '/analisis-rasio': { script: 'analisis_rasio.js', init: 'initAnalisisRasioPage' },
+        '/activity-log': { script: 'activity_log.js', init: 'initActivityLogPage' },
+        '/anggaran': { script: 'anggaran.js', init: 'initAnggaranPage' },
+        '/users': { script: 'users.js', init: 'initUsersPage' },
+        '/laporan-pertumbuhan-laba': { script: 'laporan_pertumbuhan_laba.js', init: 'initLaporanPertumbuhanLabaPage' },
+        '/histori-rekonsiliasi': { script: 'histori_rekonsiliasi.js', init: 'initHistoriRekonsiliasiPage' },
+        '/rekonsiliasi-bank': { script: 'rekonsiliasi_bank.js', init: 'initRekonsiliasiBankPage' },
+        '/aset-tetap': { script: 'aset_tetap.js', init: 'initAsetTetapPage' },
+        '/pembelian': { script: 'pembelian.js', init: 'initPembelianPage' },
+        '/stok': { script: 'stok.js', init: 'initStokPage' },
+        '/stok-opname': { script: 'stok_opname.js', init: 'initStokOpnamePage' },
+        '/laporan-kartu-stok': { script: 'laporan_kartu_stok.js', init: 'initLaporanKartuStokPage' },
+        '/laporan-persediaan': { script: 'laporan_persediaan.js', init: 'initLaporanPersediaanPage' },
+        '/laporan-pertumbuhan-persediaan': { script: 'laporan_pertumbuhan_persediaan.js', init: 'initLaporanPertumbuhanPersediaanPage' },
+        '/laporan-penjualan-item': { script: 'laporan_penjualan_item.js', init: 'initLaporanPenjualanItemPage' },
+        '/laporan-penjualan': { script: 'laporan_penjualan.js', init: 'initLaporanPenjualanPage' },
+        '/penjualan': { script: 'penjualan.js', init: 'initPenjualanPage' },
+        '/neraca-saldo': { script: 'neraca_saldo.js', init: 'initNeracaSaldoPage' },
+        '/roles': { script: 'roles.js', init: 'initRolesPage' },
+        '/hr/karyawan': { script: 'hr/karyawan.js', init: 'initKaryawanPage' },
+        '/hr/jabatan': { script: 'hr/jabatan.js', init: 'initJabatanPage' },
+        '/hr/divisi': { script: 'hr/divisi.js', init: 'initDivisiPage' },
+        '/hr/master-dashboard': { script: 'hr/master_dashboard.js', init: 'initMasterDashboardPage' },
+        '/hr/kantor': { script: 'hr/kantor.js', init: 'initKantorPage' },
+        '/hr/golongan-absensi': { script: 'hr/golonganabsensi.js', init: 'initGolonganAbsensiPage' },
+        '/hr/status-absensi': { script: 'hr/statusabsensi.js', init: 'initStatusAbsensiPage' },
+        '/hr/jadwal-kerja': { script: 'hr/jadwalkerja.js', init: 'initJadwalKerjaPage' },
+        '/hr/absensi': { script: 'hr/absensi.js', init: 'initAbsensiPage' },
+        '/hr/jenis-cuti': { script: 'hr/jeniscuti.js', init: 'initJenisCutiPage' },
+        '/hr/manajemen-cuti': { script: 'hr/manajemencuti.js', init: 'initManajemenCutiPage' },
+        '/hr/kalender-cuti': { script: 'hr/kalendercuti.js', init: 'initKalenderCutiPage' },
+        '/hr/komponen-gaji': { script: 'hr/komponengaji.js', init: 'initKomponenGajiPage' },
+        '/hr/golongan-gaji': { script: 'hr/golongangaji.js', init: 'initGolonganGajiPage' },
+        '/hr/penggajian': { script: 'hr/penggajian.js', init: 'initPenggajianPage' },
+        '/hr/payroll-dashboard': { script: 'hr/payroll_dashboard.js', init: 'initPayrollDashboardPage' },
+        '/hr/laporan': { script: 'hr/laporan.js', init: 'initLaporanPage' },
+        '/hr/pengaturan-pajak': { script: 'hr/pengaturan_pajak.js', init: 'initPengaturanPajakPage' },
+        '/hr/portal/dashboard': { script: 'hr/portal/dashboard.js', init: 'initPortalDashboardPage' },
+        '/hr/portal/profil': { script: 'hr/portal/profil.js', init: 'initPortalProfilPage' },
+        '/hr/portal/absensi': { script: 'hr/portal/absensi.js', init: 'initPortalAbsensiPage' },
+        '/hr/portal/slip-gaji': { script: 'hr/portal/slipgaji.js', init: 'initPortalSlipGajiPage' },
+        '/buku-panduan': { script: null, init: null } // Halaman statis
+    };
+
+    const route = routeMap[cleanPath];
+
+    if (route) {
+        if (route.script && route.init) {
+            loadScript(`${basePath}/assets/js/${route.script}`)
+                .then(() => {
+                    if (typeof window[route.init] === 'function') {
+                        window[route.init]();
+                    } else {
+                        console.error(`Initialization function ${route.init} not found.`);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+        // Jika script null, tidak melakukan apa-apa (untuk halaman statis)
+    } else {
+        console.warn(`No script definition for path: ${cleanPath}`);
     }
 }
 
@@ -481,14 +337,20 @@ function runPageScripts(path) {
  */
 function loadScript(src) {
     return new Promise((resolve, reject) => {
-        // Check if the script is already loaded
-        if (document.querySelector(`script[src="${src}"]`)) {
+        // Cek jika skrip sudah ada di dalam body
+        const existingScript = document.querySelector(`body > script[src="${src}"]`);
+        if (existingScript) {
+            // Jika sudah ada, langsung resolve.
             resolve();
             return;
         }
         const script = document.createElement('script');
         script.src = src;
-        script.onload = () => resolve();
+        script.onload = () => {
+            // Hapus skrip setelah dieksekusi untuk menjaga kebersihan DOM
+            script.remove();
+            resolve();
+        };
         script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
         document.body.appendChild(script);
     });
@@ -540,13 +402,242 @@ function timeSince(date) {
     return "Baru saja";
 }
 
+/**
+ * Updates sidebar badges (e.g. pending leave requests).
+ */
+function updateSidebarBadges() {
+    fetch(`${basePath}/api/hr/manajemen-cuti?action=get_pending_count`)
+        .then(response => response.json())
+        .then(data => {
+            const hasPending = data.success && data.total > 0;
+            const totalPending = hasPending ? data.total : 0;
+
+            // Update sidebar badge if it exists
+            const badgeCuti = document.getElementById('badge-hr_manajemen_cuti');
+            if (badgeCuti) {
+                if (hasPending) {
+                    badgeCuti.textContent = totalPending;
+                    badgeCuti.classList.remove('hidden');
+                } else {
+                    badgeCuti.classList.add('hidden');
+                }
+            }
+
+            // Update waffle menu button if it exists
+            const waffleButton = document.getElementById('waffle-menu-button');
+            if (waffleButton) {
+                if (hasPending) {
+                    waffleButton.classList.add('is-shaking');
+                } else {
+                    waffleButton.classList.remove('is-shaking');
+                }
+            }
+        })
+        .catch(err => console.error('Error fetching badges:', err));
+}
+
+/**
+ * Toggles the sidebar between minimized and full-width states.
+ */
+function toggleSidebar() {
+    // Mobile Logic (< 1024px)
+    if (window.innerWidth < 1024) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.toggle('-translate-x-full');
+        if (overlay) overlay.classList.toggle('hidden');
+    } 
+    // Desktop Logic (>= 1024px)
+    else {
+        const body = document.body;
+        const isMinimized = body.classList.toggle('sidebar-minimized');
+        localStorage.setItem('sidebar_minimized', isMinimized);
+    }
+}
+
+/**
+ * Toggles a collapsible menu item in the sidebar.
+ * @param {HTMLElement} button The button element that was clicked.
+ */
+function toggleCollapse(button) {
+    // Find the main container for the collapsible menu
+    const wrapper = button.closest('[data-controller="collapse"]');
+    if (!wrapper) return;
+
+    // Find the content to show/hide and the icon to rotate
+    const content = wrapper.querySelector('.collapse-content');
+    const icon = button.querySelector('.bi-chevron-down');
+
+    if (content) {
+        // If content is open (has a maxHeight), close it. Otherwise, open it.
+        if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+            content.style.maxHeight = '0px';
+        } else {
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    }
+    if (icon) {
+        icon.classList.toggle('rotate-180'); // Tailwind class for rotation
+    }
+}
+
+/**
+ * Sets the layout mode and reloads the page.
+ * @param {string} mode 'sidebar' or 'top_nav'
+ */
+function setLayoutMode(mode) {
+    document.cookie = "layout_mode=" + mode + "; path=/; max-age=31536000"; // 1 year
+    window.location.reload();
+}
+
+/**
+ * Toggles a flyout menu in the icon-menu layout.
+ * @param {HTMLElement} button The button element that was clicked.
+ */
+function toggleFlyoutMenu(button) {
+    const wrapper = button.closest('[data-controller="flyout"]');
+    if (!wrapper) return;
+
+    const menu = wrapper.querySelector('.flyout-menu');
+    if (!menu) return;
+
+    const isHidden = menu.classList.contains('hidden');
+
+    // Close all other flyouts first
+    document.querySelectorAll('.flyout-menu').forEach(m => {
+        if (m !== menu) {
+            m.classList.add('hidden');
+        }
+    });
+
+    // Then toggle the current one
+    if (isHidden) {
+        menu.classList.remove('hidden');
+        // Reposition if it goes off-screen
+        const rect = menu.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = 'auto';
+            menu.style.bottom = '5px';
+        } else {
+            menu.style.top = '0';
+            menu.style.bottom = 'auto';
+        }
+    } else {
+        menu.classList.add('hidden');
+    }
+}
+
+/**
+ * Initializes tooltips for the icon-menu layout.
+ */
+function initTooltips() {
+    if (document.documentElement.classList.contains('layout-icon-menu')) {
+        let tooltipEl = document.createElement('div');
+        tooltipEl.className = 'fixed p-2 text-sm font-medium text-white bg-gray-900 dark:bg-black rounded-md shadow-sm opacity-0 transition-opacity duration-200 z-[100] pointer-events-none whitespace-nowrap';
+        document.body.appendChild(tooltipEl);
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                tooltipEl.textContent = el.dataset.tooltip;
+                tooltipEl.style.opacity = '1';
+                const rect = el.getBoundingClientRect();
+                tooltipEl.style.top = `${rect.top + rect.height / 2 - tooltipEl.offsetHeight / 2}px`;
+                tooltipEl.style.left = `${rect.right + 10}px`;
+            });
+            el.addEventListener('mouseleave', () => { tooltipEl.style.opacity = '0'; });
+        });
+    }
+}
+
+/**
+ * Initializes the icon menu search functionality.
+ */
+function initIconMenuSearch() {
+    const searchInput = document.getElementById('icon-menu-search');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const grid = document.getElementById('icon-menu-grid');
+        if (!grid) return;
+
+        const items = grid.querySelectorAll('a');
+        const headers = grid.querySelectorAll('div.col-span-3');
+
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (text.includes(term)) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+
+        // Hide headers if searching to keep the view clean
+        if (term.length > 0) {
+            headers.forEach(header => header.classList.add('hidden'));
+        } else {
+            headers.forEach(header => header.classList.remove('hidden'));
+        }
+    });
+    
+    // Prevent dropdown from closing when clicking inside search input
+    searchInput.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+}
+
+function toggleDropdown(element) {
+    // Stop shaking animation if user clicks the waffle menu
+    if (element.id === 'waffle-menu-button') {
+        element.classList.remove('is-shaking');
+    }
+
+    const menu = element.nextElementSibling;
+    menu.classList.toggle('hidden');
+    
+    // Auto focus search input if exists inside the menu
+    if (!menu.classList.contains('hidden')) {
+        menu.classList.add('dropdown-animate-in');
+        const searchInput = menu.querySelector('input');
+        if (searchInput) {
+            setTimeout(() => searchInput.focus(), 50);
+        }
+    }
+}
+
+/**
+ * Closes the dropdown menu when an item is clicked.
+ * @param {HTMLElement} element The element inside the dropdown that was clicked.
+ */
+function closeDropdown(element) {
+    const menu = element.closest('.dropdown-menu');
+    if (menu) {
+        menu.classList.add('hidden');
+    }
+}
+
+ function openModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
 // =================================================================================
 // GLOBAL INITIALIZATION
 // =================================================================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Sidebar logic is now handled by inline `onclick="toggleSidebar()"` in header.php
-    // and the `toggleSidebar` function in footer.php
+    // Update badges on load
+    updateSidebarBadges();
+
+    initTooltips();
+    // Apply sidebar preference on load
+    if (localStorage.getItem('sidebar_minimized') === 'true' && window.innerWidth >= 1024) {
+        document.body.classList.add('sidebar-minimized');
+    }
 
     // --- Theme Switcher ---
     const themeSwitcher = document.getElementById('theme-switcher');
@@ -691,6 +782,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Initialize Global Components ---
     initGlobalSearch();
     initRecurringModal();
+    initSidebarSearch();
+    initIconMenuSearch();
+
+    // Inisialisasi Flatpickr untuk modal global (dipindahkan dari footer)
+    if (typeof flatpickr !== 'undefined') {
+        const startEl = document.querySelector("#recurring-start-date");
+        const endEl = document.querySelector("#recurring-end-date");
+        if (startEl) flatpickr(startEl, { dateFormat: "d-m-Y", allowInput: true });
+        if (endEl) flatpickr(endEl, { dateFormat: "d-m-Y", allowInput: true });
+    }
 });
 
 // --- Global Theme Color Picker Logic ---
@@ -834,6 +935,13 @@ function initGlobalSearch() {
         }
     });
 
+    // Add a global click listener to close flyouts
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('[data-controller="flyout"]')) {
+            document.querySelectorAll('.flyout-menu').forEach(m => m.classList.add('hidden'));
+        }
+    });
+
     // Add keyboard shortcut (Ctrl+K or Cmd+K)
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -841,6 +949,100 @@ function initGlobalSearch() {
             openModal('globalSearchModal');
             setTimeout(() => searchInput.focus(), 50);
         }
+
+        // Close dropdowns and flyouts on ESC
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.dropdown-menu:not(.hidden)').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+            document.querySelectorAll('.flyout-menu:not(.hidden)').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+        }
+    });
+}
+
+/**
+ * Initializes the sidebar search functionality.
+ */
+function initSidebarSearch() {
+    const searchInput = document.getElementById('sidebar-search');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const nav = document.getElementById('sidebar-nav');
+        if (!nav) return;
+
+        const children = nav.children;
+        
+        Array.from(children).forEach(child => {
+            // Handle Headers (div without data-controller)
+            if (child.tagName === 'DIV' && !child.hasAttribute('data-controller')) {
+                 if (term) child.classList.add('hidden');
+                 else child.classList.remove('hidden');
+                 return;
+            }
+
+            // Handle Simple Links (tag A directly)
+            if (child.tagName === 'A') {
+                const text = child.textContent.toLowerCase();
+                if (text.includes(term)) {
+                    child.classList.remove('hidden');
+                } else {
+                    child.classList.add('hidden');
+                }
+            }
+
+            // Handle Collapsible Menus (div with data-controller="collapse")
+            if (child.hasAttribute('data-controller')) {
+                const button = child.querySelector('button');
+                const parentText = button.textContent.toLowerCase();
+                const content = child.querySelector('.collapse-content');
+                const items = content.querySelectorAll('li');
+                let hasMatch = false;
+
+                items.forEach(li => {
+                    const link = li.querySelector('a');
+                    const text = link ? link.textContent.toLowerCase() : '';
+                    if (text.includes(term)) {
+                        li.classList.remove('hidden');
+                        hasMatch = true;
+                    } else {
+                        li.classList.add('hidden');
+                    }
+                });
+
+                if (term === '') {
+                    // Reset state if search is empty
+                    child.classList.remove('hidden');
+                    items.forEach(li => li.classList.remove('hidden'));
+                    
+                    // Collapse unless active
+                    const hasActive = content.querySelector('.text-primary'); 
+                    if (!hasActive) { // Only collapse if it's not the active parent menu
+                        content.style.maxHeight = '0px';
+                        const icon = button.querySelector('.bi-chevron-down');
+                        if(icon) icon.classList.remove('rotate-180');
+                    }
+                } else {
+                    // Search logic
+                    if (hasMatch || parentText.includes(term)) {
+                        child.classList.remove('hidden');
+                        content.style.maxHeight = content.scrollHeight + 'px'; // Expand
+                        const icon = button.querySelector('.bi-chevron-down');
+                        if(icon) icon.classList.add('rotate-180');
+                        
+                        // If parent matches, show all children
+                        if (parentText.includes(term)) {
+                            items.forEach(li => li.classList.remove('hidden'));
+                        }
+                    } else {
+                        child.classList.add('hidden');
+                    }
+                }
+            }
+        });
     });
 }
 /**
@@ -936,4 +1138,18 @@ function renderPagination(container, pagination, onPageClick) {
 function formatNumber(value) {
     if (typeof value !== 'number') return value;
     return new Intl.NumberFormat('id-ID').format(value);
+}
+
+/**
+ * Debounce function to limit the rate at which a function can fire.
+ * @param {Function} func The function to debounce.
+ * @param {number} wait The delay in milliseconds.
+ * @returns {Function}
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
 }
