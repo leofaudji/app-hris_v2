@@ -28,6 +28,12 @@ require_once PROJECT_ROOT . '/includes/ReportBuilders/StrukPenjualanReportBuilde
 require_once PROJECT_ROOT . '/includes/ReportBuilders/LaporanPenjualanItemReportBuilder.php';
 require_once PROJECT_ROOT . '/includes/ReportBuilders/LaporanPenjualanReportBuilder.php';
 require_once PROJECT_ROOT . '/includes/ReportBuilders/SlipGajiReportBuilder.php';
+require_once PROJECT_ROOT . '/includes/ReportBuilders/SPLReportBuilder.php';
+require_once PROJECT_ROOT . '/includes/ReportBuilders/RaporKPIReportBuilder.php';
+require_once PROJECT_ROOT . '/includes/ReportBuilders/PaklaringReportBuilder.php';
+require_once PROJECT_ROOT . '/includes/ReportBuilders/SPKReportBuilder.php';
+require_once PROJECT_ROOT . '/includes/ReportBuilders/EvaluasiProbationReportBuilder.php';
+
 
 $conn = Database::getInstance()->getConnection();
 
@@ -72,7 +78,12 @@ $builder_map = [
     'trial-balance' => TrialBalanceReportBuilder::class, // Tambahkan ini
     'konsinyasi-sisa-utang' => KonsinyasiSisaUtangReportBuilder::class,
     'aset-tetap' => AsetTetapReportBuilder::class,
-    'slip-gaji' => SlipGajiReportBuilder::class
+    'slip-gaji' => SlipGajiReportBuilder::class,
+    'spl' => SPLReportBuilder::class,
+    'rapor-kpi' => RaporKPIReportBuilder::class,
+    'paklaring' => PaklaringReportBuilder::class,
+    'spk' => SPKReportBuilder::class,
+    'evaluasi-probation' => EvaluasiProbationReportBuilder::class
 ];
 
 try {

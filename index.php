@@ -4,6 +4,21 @@
 // Mulai sesi di setiap permintaan. Ini harus dilakukan sebelum output apa pun.
 session_start();  
 
+// --- HTML Minification (Membuat Source Code 1 Baris) ---
+ob_start(function($buffer) {
+    // 1. Hapus komentar HTML (kecuali conditional comments IE)
+    $buffer = preg_replace('/<!--(?!(?:\[if|<!))(.|\s)*?-->/', '', $buffer);
+    
+    // 2. Hapus whitespace (spasi/newline) di antara tag HTML
+    // Mengubah ">   <" menjadi "><"
+    $buffer = preg_replace('/>\s+</', '><', $buffer);
+    
+    // 3. Hapus whitespace berlebih menjadi satu spasi (Opsional, hati-hati dengan <pre> atau JS inline)
+    // $buffer = preg_replace('/\s+/', ' ', $buffer); 
+    
+    return trim($buffer);
+});
+
 // Muat komponen inti
 require_once 'includes/bootstrap.php';
 
@@ -37,13 +52,25 @@ $router->post('/reset-password', 'actions/reset_password_action.php', ['guest'])
 // Rute yang memerlukan otentikasi
 $router->get('/', function() {
     if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
-        header('Location: ' . base_url('/dashboard'));
+        // Cek Role: Jika Karyawan (ID 4), arahkan ke Portal
+        if (isset($_SESSION['role_id']) && $_SESSION['role_id'] == 4) {
+            header('Location: ' . base_url('/hr/portal/dashboard'));
+        } else {
+            header('Location: ' . base_url('/dashboard'));
+        }
     } else {
         header('Location: ' . base_url('/login'));
     }
     exit;
 });
-$router->get('/dashboard', 'pages/dashboard.php', ['auth']);
+$router->get('/dashboard', function() {
+    // Proteksi: Karyawan tidak boleh akses dashboard utama
+    if (isset($_SESSION['role_id']) && $_SESSION['role_id'] == 4) {
+        header('Location: ' . base_url('/hr/portal/dashboard'));
+        exit;
+    }
+    require 'pages/dashboard.php';
+}, ['auth']);
 $router->get('/buku-panduan', 'pages/buku_panduan.php', ['auth']);
 $router->get('/logout', 'logout.php');
 $router->get('/my-profile/change-password', 'pages/my_profile.php', ['auth']);
@@ -85,6 +112,7 @@ $router->get('/roles', 'pages/roles.php', ['auth', 'admin']);
 $router->post('/roles', 'pages/roles.php', ['auth', 'admin']);
 
 // --- Rute Modul HR & Payroll ---
+$router->get('/hr/dashboard', 'pages/hr/dashboard.php', ['auth']);
 $router->get('/hr/karyawan', 'pages/hr/karyawan.php', ['auth']);
 $router->get('/hr/jabatan', 'pages/hr/jabatan.php', ['auth']);
 $router->get('/hr/divisi', 'pages/hr/divisi.php', ['auth']);
@@ -103,6 +131,14 @@ $router->get('/hr/penggajian', 'pages/hr/penggajian.php', ['auth']);
 $router->get('/hr/payroll-dashboard', 'pages/hr/payroll_dashboard.php', ['auth']);
 $router->get('/hr/laporan', 'pages/hr/laporan.php', ['auth']);
 $router->get('/hr/pengaturan-pajak', 'pages/hr/pengaturan_pajak.php', ['auth']);
+$router->get('/hr/manajemen-klaim', 'pages/hr/manajemen_klaim.php', ['auth']);
+$router->get('/hr/lembur', 'pages/hr/lembur.php', ['auth']);
+$router->get('/hr/peringatan-kontrak', 'pages/hr/peringatan_kontrak.php', ['auth']);
+$router->get('/hr/kpi-templates', 'pages/hr/kpi_templates.php', ['auth']);
+$router->get('/hr/penilaian-kinerja', 'pages/hr/penilaian_kinerja.php', ['auth']);
+$router->get('/hr/pengumuman', 'pages/hr/pengumuman.php', ['auth']);
+$router->get('/hr/rekrutmen', 'pages/hr/rekrutmen.php', ['auth']);
+$router->get('/hr/offboarding', 'pages/hr/offboarding.php', ['auth']);
 
 // --- Rute Portal Karyawan ---
 $router->get('/hr/portal/dashboard', 'pages/hr/portal/dashboard.php', ['auth']);
@@ -214,6 +250,20 @@ $router->get('/api/hr/laporan', 'api/hr/laporan_handler.php', ['auth']);
 $router->post('/api/hr/laporan', 'api/hr/laporan_handler.php', ['auth']);
 $router->get('/api/hr/pengaturan-pajak', 'api/hr/pengaturan_pajak_handler.php', ['auth']);
 $router->post('/api/hr/pengaturan-pajak', 'api/hr/pengaturan_pajak_handler.php', ['auth']);
+$router->get('/api/hr/klaim', 'api/hr/klaim_handler.php', ['auth']);
+$router->post('/api/hr/klaim', 'api/hr/klaim_handler.php', ['auth']);
+$router->get('/api/hr/lembur', 'api/hr/lembur_handler.php', ['auth']);
+$router->post('/api/hr/lembur', 'api/hr/lembur_handler.php', ['auth']);
+$router->get('/api/hr/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
+$router->post('/api/hr/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
+$router->get('/api/hr/kpi', 'api/hr/kpi_handler.php', ['auth']);
+$router->post('/api/hr/kpi', 'api/hr/kpi_handler.php', ['auth']);
+$router->get('/api/hr/pengumuman', 'api/hr/pengumuman_handler.php', ['auth']);
+$router->post('/api/hr/pengumuman', 'api/hr/pengumuman_handler.php', ['auth']);
+$router->get('/api/hr/rekrutmen', 'api/hr/rekrutmen_handler.php', ['auth']);
+$router->post('/api/hr/rekrutmen', 'api/hr/rekrutmen_handler.php', ['auth']);
+$router->get('/api/hr/offboarding', 'api/hr/offboarding_handler.php', ['auth']);
+$router->post('/api/hr/offboarding', 'api/hr/offboarding_handler.php', ['auth']);
 
 // API Portal Karyawan
 $router->get('/api/hr/portal/dashboard', 'api/hr/portal/dashboard_handler.php', ['auth']);

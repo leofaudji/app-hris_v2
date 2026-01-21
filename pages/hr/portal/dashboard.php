@@ -37,6 +37,17 @@ if (!$is_spa_request) {
     </div>
 </div>
 
+<!-- Pengumuman Section -->
+<div class="mt-6">
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+        <i class="bi bi-megaphone-fill text-primary"></i> Pengumuman Terbaru
+    </h3>
+    <div id="portal-pengumuman-list" class="space-y-4">
+        <!-- Placeholder -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4 text-center text-gray-500">Memuat pengumuman...</div>
+    </div>
+</div>
+
 <?php
 if (!$is_spa_request) {
     require_once PROJECT_ROOT . '/views/footer.php';

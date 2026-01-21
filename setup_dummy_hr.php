@@ -21,6 +21,21 @@ $conn->query("TRUNCATE TABLE hr_absensi;");
 $conn->query("TRUNCATE TABLE hr_pengajuan_cuti;");
 $conn->query("TRUNCATE TABLE hr_jatah_cuti;");
 $conn->query("TRUNCATE TABLE hr_karyawan;");
+$conn->query("DROP TABLE IF EXISTS hr_klaim;");
+$conn->query("DROP TABLE IF EXISTS hr_jenis_klaim;");
+$conn->query("DROP TABLE IF EXISTS hr_lembur;");
+$conn->query("DROP TABLE IF EXISTS hr_dokumen_karyawan;");
+$conn->query("DROP TABLE IF EXISTS hr_penilaian_detail;");
+$conn->query("DROP TABLE IF EXISTS hr_penilaian_kinerja;");
+$conn->query("DROP TABLE IF EXISTS hr_kpi_indicators;");
+$conn->query("DROP TABLE IF EXISTS hr_kpi_templates;");
+$conn->query("DROP TABLE IF EXISTS hr_libur_nasional;");
+$conn->query("DROP TABLE IF EXISTS hr_pengumuman;");
+$conn->query("DROP TABLE IF EXISTS hr_pelamar;");
+$conn->query("DROP TABLE IF EXISTS hr_offboarding;");
+$conn->query("DROP TABLE IF EXISTS hr_evaluasi_probation;");
+$conn->query("DROP TABLE IF EXISTS hr_riwayat_gaji;");
+$conn->query("DROP TABLE IF EXISTS hr_lowongan;");
 
 // Truncate Master Tables
 $conn->query("TRUNCATE TABLE hr_kantor;");
@@ -110,6 +125,8 @@ $komponens = [
     ['nama_komponen' => 'JHT (2%)', 'jenis' => 'potongan', 'tipe_hitung' => 'bulanan', 'nilai_default' => 200000, 'is_default' => 1],
     ['nama_komponen' => 'Bonus Project', 'jenis' => 'pendapatan', 'tipe_hitung' => 'bulanan', 'nilai_default' => 0, 'is_default' => 0],
     ['nama_komponen' => 'Potongan Kasbon', 'jenis' => 'potongan', 'tipe_hitung' => 'bulanan', 'nilai_default' => 0, 'is_default' => 0],
+    ['nama_komponen' => 'Upah Lembur', 'jenis' => 'pendapatan', 'tipe_hitung' => 'lembur', 'nilai_default' => 0, 'is_default' => 1],
+    ['nama_komponen' => 'Bonus KPI', 'jenis' => 'pendapatan', 'tipe_hitung' => 'bulanan', 'nilai_default' => 1000000, 'is_default' => 1],
 ];
 foreach ($komponens as $k) {
     $stmt = $conn->prepare("INSERT INTO hr_komponen_gaji (nama_komponen, jenis, tipe_hitung, nilai_default, is_default) VALUES (?, ?, ?, ?, ?)");
@@ -165,6 +182,284 @@ $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'port
 log_step("Role 'Karyawan' dan akses menunya berhasil dibuat.");
 
 
+// 10.b Jenis Klaim & Klaim (New Feature)
+$sql_klaim_tables = "
+CREATE TABLE IF NOT EXISTS `hr_jenis_klaim` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nama_jenis` varchar(100) NOT NULL,
+  `max_plafon` decimal(15,2) DEFAULT 0,
+  `keterangan` text,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_klaim` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `jenis_klaim_id` int(11) NOT NULL,
+  `tanggal_klaim` date NOT NULL,
+  `jumlah` decimal(15,2) NOT NULL,
+  `keterangan` text,
+  `bukti_file` varchar(255) DEFAULT NULL,
+  `status` enum('pending','approved','rejected','paid') DEFAULT 'pending',
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`),
+  KEY `jenis_klaim_id` (`jenis_klaim_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->multi_query($sql_klaim_tables);
+while ($conn->more_results() && $conn->next_result()) {;}
+
+$jenis_klaims = [
+    ['nama' => 'Kesehatan (Rawat Jalan)', 'plafon' => 5000000],
+    ['nama' => 'Transportasi / Bensin', 'plafon' => 1000000],
+    ['nama' => 'Kacamata', 'plafon' => 2000000],
+    ['nama' => 'Entertainment', 'plafon' => 0], // 0 = Unlimited/Approval based
+];
+foreach ($jenis_klaims as $jk) {
+    $conn->query("INSERT INTO hr_jenis_klaim (nama_jenis, max_plafon) VALUES ('{$jk['nama']}', {$jk['plafon']})");
+}
+log_step("Tabel dan Data Jenis Klaim berhasil dibuat.");
+
+// 10.c Lembur (New Feature)
+$sql_lembur_table = "
+CREATE TABLE IF NOT EXISTS `hr_lembur` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `tanggal` date NOT NULL,
+  `jam_mulai` time NOT NULL,
+  `jam_selesai` time NOT NULL,
+  `keterangan` text,
+  `status` enum('pending','approved','rejected') DEFAULT 'pending',
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_lembur_table);
+log_step("Tabel Lembur berhasil dibuat.");
+
+// 10.d Dokumen Karyawan (New Feature)
+$sql_dokumen_table = "
+CREATE TABLE IF NOT EXISTS `hr_dokumen_karyawan` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `jenis_dokumen` varchar(50) NOT NULL,
+  `nama_file` varchar(255) NOT NULL,
+  `path_file` varchar(255) NOT NULL,
+  `tanggal_kadaluarsa` date DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_dokumen_table);
+log_step("Tabel Dokumen Karyawan berhasil dibuat.");
+
+// 10.e KPI (New Feature)
+$sql_kpi_tables = "
+CREATE TABLE IF NOT EXISTS `hr_kpi_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nama_template` varchar(100) NOT NULL,
+  `keterangan` text,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_kpi_indicators` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `template_id` int(11) NOT NULL,
+  `indikator` varchar(255) NOT NULL,
+  `bobot` int(3) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `template_id` (`template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_penilaian_kinerja` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `template_id` int(11) NOT NULL,
+  `periode_bulan` int(2) NOT NULL,
+  `periode_tahun` int(4) NOT NULL,
+  `tanggal_penilaian` date NOT NULL,
+  `penilai_id` int(11) NOT NULL,
+  `total_skor` decimal(5,2) DEFAULT 0,
+  `catatan` text,
+  `status` enum('draft','final') DEFAULT 'draft',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`),
+  KEY `template_id` (`template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_penilaian_detail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `penilaian_id` int(11) NOT NULL,
+  `indikator_id` int(11) NOT NULL,
+  `skor` int(3) NOT NULL,
+  `komentar` text,
+  PRIMARY KEY (`id`),
+  KEY `penilaian_id` (`penilaian_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->multi_query($sql_kpi_tables);
+while ($conn->more_results() && $conn->next_result()) {;}
+log_step("Tabel KPI berhasil dibuat.");
+
+// Dummy KPI Template
+$conn->query("INSERT INTO hr_kpi_templates (nama_template, keterangan) VALUES ('Evaluasi Staff Umum', 'Template standar untuk staff')");
+$template_id = $conn->insert_id;
+$conn->query("INSERT INTO hr_kpi_indicators (template_id, indikator, bobot) VALUES ($template_id, 'Kedisiplinan & Kehadiran', 20)");
+$conn->query("INSERT INTO hr_kpi_indicators (template_id, indikator, bobot) VALUES ($template_id, 'Kualitas Pekerjaan', 30)");
+$conn->query("INSERT INTO hr_kpi_indicators (template_id, indikator, bobot) VALUES ($template_id, 'Kerjasama Tim', 20)");
+$conn->query("INSERT INTO hr_kpi_indicators (template_id, indikator, bobot) VALUES ($template_id, 'Inisiatif', 15)");
+$conn->query("INSERT INTO hr_kpi_indicators (template_id, indikator, bobot) VALUES ($template_id, 'Pencapaian Target', 15)");
+log_step("Data Dummy KPI Template berhasil dibuat.");
+
+// 10.f Libur Nasional (New Feature)
+$sql_libur_table = "
+CREATE TABLE IF NOT EXISTS `hr_libur_nasional` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `tanggal` date NOT NULL,
+  `keterangan` varchar(255) NOT NULL,
+  `is_cuti_bersama` tinyint(1) DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tanggal` (`tanggal`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_libur_table);
+$current_year = date('Y');
+$conn->query("INSERT INTO hr_libur_nasional (tanggal, keterangan) VALUES ('$current_year-01-01', 'Tahun Baru Masehi')");
+$conn->query("INSERT INTO hr_libur_nasional (tanggal, keterangan) VALUES ('$current_year-08-17', 'Hari Kemerdekaan RI')");
+$conn->query("INSERT INTO hr_libur_nasional (tanggal, keterangan) VALUES ('$current_year-12-25', 'Hari Raya Natal')");
+log_step("Tabel dan Data Dummy Libur Nasional berhasil dibuat.");
+
+// 10.g Pengumuman Internal (New Feature)
+$sql_pengumuman_table = "
+CREATE TABLE IF NOT EXISTS `hr_pengumuman` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `judul` varchar(255) NOT NULL,
+  `isi` text NOT NULL,
+  `lampiran_file` varchar(255) DEFAULT NULL,
+  `created_by` int(11) NOT NULL,
+  `is_published` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_pengumuman_table);
+$conn->query("INSERT INTO hr_pengumuman (judul, isi, created_by, is_published, created_at) VALUES ('Libur Cuti Bersama Idul Fitri', 'Diberitahukan kepada seluruh karyawan bahwa akan ada libur cuti bersama dalam rangka Hari Raya Idul Fitri. Detail jadwal akan diinformasikan lebih lanjut.', 1, 1, NOW() - INTERVAL 1 DAY)");
+$conn->query("INSERT INTO hr_pengumuman (judul, isi, created_by, is_published) VALUES ('Update Kebijakan Work From Home', 'Akan ada pembaruan kebijakan WFH yang akan diumumkan minggu depan.', 1, 0)");
+log_step("Tabel dan Data Dummy Pengumuman Internal berhasil dibuat.");
+
+// 10.h Manajemen Rekrutmen (New Feature)
+$sql_rekrutmen_tables = "
+CREATE TABLE IF NOT EXISTS `hr_lowongan` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `judul` varchar(255) NOT NULL,
+  `jabatan_id` int(11) DEFAULT NULL,
+  `divisi_id` int(11) DEFAULT NULL,
+  `kuota` int(11) DEFAULT 1,
+  `deskripsi` text,
+  `kualifikasi` text,
+  `status` enum('buka','tutup') DEFAULT 'buka',
+  `tanggal_mulai` date NOT NULL,
+  `tanggal_selesai` date DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_pelamar` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `lowongan_id` int(11) NOT NULL,
+  `nama_lengkap` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `no_hp` varchar(20) DEFAULT NULL,
+  `pendidikan_terakhir` varchar(50) DEFAULT NULL,
+  `file_cv` varchar(255) DEFAULT NULL,
+  `file_spk_signed` VARCHAR(255) DEFAULT NULL,
+  `status` enum('applied','screening','interview','offering','hired','rejected') DEFAULT 'applied',
+  `catatan` text,
+  `tanggal_lamar` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `lowongan_id` (`lowongan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->multi_query($sql_rekrutmen_tables);
+while ($conn->more_results() && $conn->next_result()) {;}
+$conn->query("INSERT INTO hr_lowongan (judul, jabatan_id, divisi_id, kuota, deskripsi, kualifikasi, tanggal_mulai) VALUES ('Staff IT Support', 4, 1, 2, 'Bertanggung jawab atas hardware dan software.', 'Min. D3 Informatika', CURDATE())");
+log_step("Tabel dan Data Dummy Rekrutmen berhasil dibuat.");
+
+// Tambahan Data Dummy Rekrutmen
+$conn->query("INSERT INTO hr_lowongan (judul, jabatan_id, divisi_id, kuota, deskripsi, kualifikasi, status, tanggal_mulai) VALUES ('Marketing Executive', 4, 4, 3, 'Mencari klien baru dan maintain klien lama.', 'Min. S1 Semua Jurusan, Komunikatif', 'buka', CURDATE())");
+$lowongan_it_id = $conn->query("SELECT id FROM hr_lowongan WHERE judul = 'Staff IT Support'")->fetch_assoc()['id'];
+$conn->query("INSERT INTO hr_pelamar (lowongan_id, nama_lengkap, email, no_hp, pendidikan_terakhir, status, catatan, tanggal_lamar) VALUES ($lowongan_it_id, 'Doni Pratama', 'doni@example.com', '081234567890', 'S1 Teknik Informatika', 'interview', 'Kandidat potensial, skill teknis bagus.', NOW())");
+$conn->query("INSERT INTO hr_pelamar (lowongan_id, nama_lengkap, email, no_hp, pendidikan_terakhir, status, catatan, tanggal_lamar) VALUES ($lowongan_it_id, 'Eka Saputra', 'eka@example.com', '089876543210', 'D3 Manajemen Informatika', 'applied', 'Baru lulus.', NOW())");
+log_step("Data Dummy Pelamar berhasil dibuat.");
+
+// 10.i Offboarding (New Feature)
+$sql_offboarding_table = "
+CREATE TABLE IF NOT EXISTS `hr_offboarding` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `tipe` enum('resign','terminate') NOT NULL,
+  `tanggal_pengajuan` date NOT NULL,
+  `tanggal_efektif` date NOT NULL COMMENT 'Last working day',
+  `alasan` text,
+  `checklist_data` json DEFAULT NULL,
+  `status` enum('proses','selesai') NOT NULL DEFAULT 'proses',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_offboarding_table);
+log_step("Tabel Offboarding berhasil dibuat.");
+
+// 10.j Evaluasi Probation (New Feature)
+$sql_evaluasi_probation = "
+CREATE TABLE IF NOT EXISTS `hr_evaluasi_probation` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `tanggal_evaluasi` date NOT NULL,
+  `penilai_id` int(11) NOT NULL,
+  `skor_teknis` int(3) NOT NULL COMMENT 'Skor 1-100',
+  `skor_budaya` int(3) NOT NULL COMMENT 'Skor 1-100',
+  `rekomendasi` enum('angkat_tetap','perpanjang_probation','terminasi') NOT NULL,
+  `catatan` text,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_evaluasi_probation);
+log_step("Tabel Evaluasi Probation berhasil dibuat.");
+
+// 10.k Riwayat Gaji (New Feature)
+$sql_riwayat_gaji = "
+CREATE TABLE IF NOT EXISTS `hr_riwayat_gaji` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `tanggal_perubahan` date NOT NULL,
+  `gaji_lama` decimal(15,2) NOT NULL,
+  `gaji_baru` decimal(15,2) NOT NULL,
+  `keterangan` text,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->query($sql_riwayat_gaji);
+log_step("Tabel Riwayat Gaji berhasil dibuat.");
+
 // 11. Karyawan
 // Ambil ID dari tabel master untuk relasi acak
 $kantor_ids = $conn->query("SELECT id FROM hr_kantor")->fetch_all(MYSQLI_ASSOC);
@@ -188,13 +483,38 @@ foreach ($karyawans as $i => $k) {
     $divisi_id = $divisi_ids[$i % count($divisi_ids)]['id'];
     $kantor_id = $kantor_ids[$i % count($kantor_ids)]['id'];
     $golongan_id = $golongan_ids[$i % count($golongan_ids)]['id'];
-    $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 3) . " years"));
-    $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(1, 12) . " months"));
+    $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 3) . " years"));    
+    // Set tanggal kontrak spesifik untuk memicu alert
+    if ($i == 1) { // Siti Aminah
+        $tgl_kontrak = date('Y-m-d', strtotime("+15 days")); // Akan berakhir
+    } elseif ($i == 2) { // Rudi Hartono
+        $tgl_kontrak = date('Y-m-d', strtotime("-5 days")); // Sudah berakhir
+    } else {
+        $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(2, 12) . " months"));
+    }
 
     $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
     $stmt->bind_param("ssiiiiiss", $k['nip'], $k['nama'], $jabatan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
     $stmt->execute();
 }
+log_step("Data Karyawan berhasil dibuat (" . count($karyawans) . " orang).");
+
+// Update struktur tabel untuk mendukung status probation dan kontrak
+$conn->query("ALTER TABLE `hr_karyawan` MODIFY COLUMN `status` ENUM('aktif','nonaktif','probation','kontrak') DEFAULT 'aktif'");
+
+// Tambahkan Karyawan Probation (Masa Percobaan Hampir Habis)
+$tgl_masuk_probation = date('Y-m-d', strtotime("-80 days")); // Masuk 80 hari lalu, probation 90 hari (sisa 10 hari)
+$stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'probation')");
+$nip_prob = 'PROB001'; $nama_prob = 'Dina Probation';
+$stmt->bind_param("ssiiiis", $nip_prob, $nama_prob, $jabatan_ids[4]['id'], $divisi_ids[0]['id'], $kantor_ids[0]['id'], $golongan_ids[3]['id'], $tgl_masuk_probation);
+$stmt->execute(); 
+log_step("Data Karyawan Probation berhasil dibuat.");
+
+// Tambahkan data dummy evaluasi probation untuk karyawan probation
+$dina_probation_id = $conn->insert_id;
+$admin_user_id = 1; // Asumsi admin yang menilai
+$conn->query("INSERT INTO hr_evaluasi_probation (karyawan_id, tanggal_evaluasi, penilai_id, skor_teknis, skor_budaya, rekomendasi, catatan) VALUES ($dina_probation_id, '".date('Y-m-d', strtotime('-60 days'))."', $admin_user_id, 75, 80, 'perpanjang_probation', 'Kinerja teknis perlu ditingkatkan sedikit lagi.')");
+log_step("Data Dummy Evaluasi Probation berhasil dibuat.");
 
 // Buat user untuk Budi Santoso dan link ke data karyawan
 $budi_nip = 'EMP2023001';
@@ -216,7 +536,23 @@ foreach ($karyawan_list_for_jatah as $k_jatah) {
     $conn->query("INSERT INTO hr_jatah_cuti (karyawan_id, tahun, jatah_awal, sisa_jatah) VALUES ({$k_jatah['id']}, $current_year, 12, 12)");
 }
 log_step("Data Jatah Cuti awal tahun berhasil dibuat untuk semua karyawan.");
-log_step("Data Karyawan berhasil dibuat (" . count($karyawans) . " orang).");
+
+// 11.b Dummy Dokumen Karyawan
+$budi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023001'")->fetch_assoc()['id'];
+$siti_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023002'")->fetch_assoc()['id'];
+$conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file) VALUES ($budi_id, 'KTP', 'ktp_budi.pdf', 'dummy/path')");
+$conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file, tanggal_kadaluarsa) VALUES ($budi_id, 'Kontrak Kerja', 'kontrak_budi_2023.pdf', 'dummy/path', '$tgl_kontrak')");
+$conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file) VALUES ($siti_id, 'Ijazah', 'ijazah_s1_siti.pdf', 'dummy/path')");
+log_step("Data Dummy Dokumen Karyawan berhasil dibuat.");
+
+// 11.c Dummy Offboarding
+$rudi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023003'")->fetch_assoc()['id'];
+$conn->query("INSERT INTO hr_offboarding (karyawan_id, tipe, tanggal_pengajuan, tanggal_efektif, alasan, status) VALUES ($rudi_id, 'resign', '".date('Y-m-d', strtotime('-15 days'))."', '".date('Y-m-d', strtotime('+15 days'))."', 'Mendapat tawaran di perusahaan lain.', 'proses')");
+
+// Tambahan Data Dummy Offboarding (Selesai)
+$andi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023005'")->fetch_assoc()['id'];
+$conn->query("INSERT INTO hr_offboarding (karyawan_id, tipe, tanggal_pengajuan, tanggal_efektif, alasan, status) VALUES ($andi_id, 'terminate', '".date('Y-m-d', strtotime('-45 days'))."', '".date('Y-m-d', strtotime('-15 days'))."', 'Pelanggaran kontrak berat.', 'selesai')");
+log_step("Data Dummy Offboarding berhasil dibuat.");
 
 // 12. Pengajuan Cuti & Absensi
 $karyawan_list = $conn->query("SELECT id FROM hr_karyawan")->fetch_all(MYSQLI_ASSOC);
@@ -301,10 +637,66 @@ foreach ($karyawan_list as $k) {
 }
 log_step("Data Absensi berhasil dibuat (termasuk dari cuti yang disetujui).");
 
+// 12.b Dummy Data Klaim
+$jk_ids = $conn->query("SELECT id FROM hr_jenis_klaim")->fetch_all(MYSQLI_ASSOC);
+$karyawan_id_sample = $karyawan_list[0]['id']; // Budi
+$jk_id_sample = $jk_ids[0]['id']; // Kesehatan
+
+// Klaim Budi (Pending)
+$conn->query("INSERT INTO hr_klaim (karyawan_id, jenis_klaim_id, tanggal_klaim, jumlah, keterangan, status) 
+              VALUES ($karyawan_id_sample, $jk_id_sample, '".date('Y-m-d', strtotime("-10 days"))."', 150000, 'Obat Flu', 'pending')");
+
+// Klaim Siti (Approved)
+$siti_id = $karyawan_list[1]['id'];
+$jk_transport_id = $jk_ids[1]['id'];
+$conn->query("INSERT INTO hr_klaim (karyawan_id, jenis_klaim_id, tanggal_klaim, jumlah, keterangan, status, approved_by, approved_at) 
+              VALUES ($siti_id, $jk_transport_id, '".date('Y-m-d', strtotime("-8 days"))."', 75000, 'Bensin perjalanan dinas', 'approved', 1, NOW())");
+
+// Klaim Rudi (Rejected)
+$rudi_id = $karyawan_list[2]['id'];
+$conn->query("INSERT INTO hr_klaim (karyawan_id, jenis_klaim_id, tanggal_klaim, jumlah, keterangan, status, approved_by, approved_at) 
+              VALUES ($rudi_id, $jk_id_sample, '".date('Y-m-d', strtotime("-5 days"))."', 250000, 'Klaim tanpa struk', 'rejected', 1, NOW())");
+
+log_step("Data Dummy Klaim berhasil dibuat.");
+
+// 12.c Dummy Data Lembur
+$tgl_lembur = date('Y-m-d', strtotime("-3 days"));
+$conn->query("INSERT INTO hr_lembur (karyawan_id, tanggal, jam_mulai, jam_selesai, keterangan, status) 
+              VALUES ($karyawan_id_sample, '$tgl_lembur', '17:00:00', '20:00:00', 'Menyelesaikan laporan bulanan', 'approved')");
+$conn->query("INSERT INTO hr_lembur (karyawan_id, tanggal, jam_mulai, jam_selesai, keterangan, status) 
+              VALUES ($karyawan_id_sample, CURDATE(), '17:00:00', '19:00:00', 'Meeting dengan klien', 'pending')");
+log_step("Data Dummy Lembur berhasil dibuat.");
+
 // 13. Penggajian (Bulan Lalu)
 // Kita gunakan API handler logic secara manual di sini untuk simulasi
 $prev_month = date('n', strtotime("first day of last month"));
 $prev_year = date('Y', strtotime("first day of last month"));
+
+// 12.d Dummy Data Penilaian KPI (untuk bulan lalu)
+$admin_user_id = 1;
+$template_id_kpi = $conn->query("SELECT id FROM hr_kpi_templates LIMIT 1")->fetch_assoc()['id'];
+$indicators_kpi = $conn->query("SELECT id, bobot FROM hr_kpi_indicators WHERE template_id = $template_id_kpi")->fetch_all(MYSQLI_ASSOC);
+
+// Penilaian untuk Budi
+$skor_budi = [85, 90, 80, 75, 95]; // Skor untuk 5 indikator
+$total_skor_budi = 0;
+foreach($indicators_kpi as $idx => $ind) {
+    $total_skor_budi += $skor_budi[$idx] * ($ind['bobot'] / 100);
+}
+$conn->query("INSERT INTO hr_penilaian_kinerja (karyawan_id, template_id, periode_bulan, periode_tahun, tanggal_penilaian, penilai_id, total_skor, catatan, status) VALUES ($budi_id, $template_id_kpi, $prev_month, $prev_year, '$prev_year-$prev_month-28', $admin_user_id, $total_skor_budi, 'Kinerja Budi sangat baik bulan ini.', 'final')");
+$penilaian_id_budi = $conn->insert_id;
+foreach($indicators_kpi as $idx => $ind) {
+    $conn->query("INSERT INTO hr_penilaian_detail (penilaian_id, indikator_id, skor) VALUES ($penilaian_id_budi, {$ind['id']}, {$skor_budi[$idx]})");
+}
+
+// Penilaian untuk Siti
+$skor_siti = [90, 85, 88, 92, 80];
+$total_skor_siti = 0;
+foreach($indicators_kpi as $idx => $ind) { $total_skor_siti += $skor_siti[$idx] * ($ind['bobot'] / 100); }
+$conn->query("INSERT INTO hr_penilaian_kinerja (karyawan_id, template_id, periode_bulan, periode_tahun, tanggal_penilaian, penilai_id, total_skor, catatan, status) VALUES ($siti_id, $template_id_kpi, $prev_month, $prev_year, '$prev_year-$prev_month-28', $admin_user_id, $total_skor_siti, 'Siti menunjukkan peningkatan yang signifikan.', 'final')");
+$penilaian_id_siti = $conn->insert_id;
+foreach($indicators_kpi as $idx => $ind) { $conn->query("INSERT INTO hr_penilaian_detail (penilaian_id, indikator_id, skor) VALUES ($penilaian_id_siti, {$ind['id']}, {$skor_siti[$idx]})"); }
+log_step("Data Dummy Penilaian KPI berhasil dibuat.");
 
 // Ambil data karyawan lengkap untuk gaji
 $sql_karyawan_gaji = "SELECT k.id, gg.gaji_pokok, j.tunjangan FROM hr_karyawan k LEFT JOIN hr_jabatan j ON k.jabatan_id = j.id LEFT JOIN hr_golongan_gaji gg ON k.golongan_gaji_id = gg.id WHERE k.status = 'aktif'";

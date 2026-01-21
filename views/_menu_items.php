@@ -141,46 +141,91 @@ function is_menu_allowed($key, $allowed_menus, $is_admin) {
 }
 ?>
 
-<!-- Menu Items -->
-<?php foreach ($menu_items as $item): ?>
-    <?php
-    // Skip jika header
+<?php
+// Pre-process menu items to group by header and filter invisible items
+$final_menu_structure = [];
+$current_header = null;
+$current_items = [];
+
+foreach ($menu_items as $item) {
     if ($item['type'] === 'header') {
-        // Hanya tampilkan header di sidebar, atau bisa diabaikan di top nav
-        if ($layout_mode === 'icon_menu') {
-             echo '<div class="col-span-3 md:col-span-4 mt-3 mb-1 px-1">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">' . $item['label'] . '</p>
-                  </div>';
+        // If we have accumulated items for the previous section, add them to structure
+        if (!empty($current_items)) {
+            $final_menu_structure[] = [
+                'header' => $current_header,
+                'items' => $current_items
+            ];
         }
-        elseif ($layout_mode === 'sidebar') {
-            echo '<div class="mt-4 mb-2 px-3">
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider sidebar-text">' . $item['label'] . '</p>
-                    <div class="sidebar-header-divider"></div>
-                  </div>';
-        }
+        // Start a new section
+        $current_header = $item;
+        $current_items = [];
         continue;
     }
 
-    // Cek Permission
+    // Check permission for the item
     if (!is_menu_allowed($item['key'], $allowed_menus, $is_admin ?? false)) {
         continue;
     }
 
-    if ($item['type'] === 'item') {
-        render_menu_item($item['url'], $item['icon'], $item['label'], $item['key'], $layout_mode);
-    } elseif ($item['type'] === 'collapse') {
+    if ($item['type'] === 'collapse') {
         // Filter children based on permissions
         $visible_children = [];
-        foreach ($item['children'] as $child) {
-            if (is_menu_allowed($child['key'], $allowed_menus, $is_admin ?? false)) {
-                $child['text'] = $child['label']; // Helper expects 'text'
-                $visible_children[] = $child;
+        if (isset($item['children']) && is_array($item['children'])) {
+            foreach ($item['children'] as $child) {
+                if (is_menu_allowed($child['key'], $allowed_menus, $is_admin ?? false)) {
+                    $child['text'] = $child['label']; // Helper expects 'text'
+                    $visible_children[] = $child;
+                }
             }
         }
         
         // Only render parent if it has visible children
         if (!empty($visible_children)) {
-            render_collapsible_menu($item['key'] . '-menu', $item['icon'], $item['label'], $visible_children, $layout_mode);
+            // Clone item to avoid modifying original config if used elsewhere
+            $item_copy = $item;
+            $item_copy['children'] = $visible_children;
+            $current_items[] = $item_copy;
+        }
+    } else {
+        // Regular item
+        $current_items[] = $item;
+    }
+}
+
+// Add the last section if it has items
+if (!empty($current_items)) {
+    $final_menu_structure[] = [
+        'header' => $current_header,
+        'items' => $current_items
+    ];
+}
+?>
+
+<!-- Menu Items Rendered -->
+<?php foreach ($final_menu_structure as $section): ?>
+    <?php 
+    // Render Header if exists
+    if ($section['header']) {
+        $header = $section['header'];
+        if ($layout_mode === 'icon_menu') {
+             echo '<div class="col-span-3 md:col-span-4 mt-3 mb-1 px-1">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">' . $header['label'] . '</p>
+                  </div>';
+        }
+        elseif ($layout_mode === 'sidebar') {
+            echo '<div class="mt-4 mb-2 px-3">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider sidebar-text">' . $header['label'] . '</p>
+                    <div class="sidebar-header-divider"></div>
+                  </div>';
+        }
+    }
+
+    // Render Items
+    foreach ($section['items'] as $item) {
+        if ($item['type'] === 'item') {
+            render_menu_item($item['url'], $item['icon'], $item['label'], $item['key'], $layout_mode);
+        } elseif ($item['type'] === 'collapse') {
+            render_collapsible_menu($item['key'] . '-menu', $item['icon'], $item['label'], $item['children'], $layout_mode);
         }
     }
     ?>

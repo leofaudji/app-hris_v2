@@ -115,6 +115,21 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
     <?php endif; ?>
 
+    <!-- Content Area Wrapper -->
+    <div class="flex-1 flex flex-col min-w-0 relative">
+        <!-- SPA Spinner Overlay (Scoped to Content) -->
+        <div id="spa-spinner-overlay" class="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-[60] flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+            <?php
+            $logo_url_spinner = isset($app_settings['app_logo']) && !empty($app_settings['app_logo']) ? base_url($app_settings['app_logo']) : base_url('assets/img/logo.png');
+            ?>
+            <div class="relative animate-flip-horizontal">
+                <img src="<?= $logo_url_spinner ?>" alt="Loading..." class="w-16 h-16">
+                <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/50 to-transparent opacity-0 animate-shine pointer-events-none"></div>
+            </div>
+            <div class="w-12 h-1 bg-black/20 rounded-full mt-2 animate-shadow-pulse"></div>
+            <span class="mt-3 text-primary font-semibold text-sm tracking-wider loading-text">Memuat...</span>
+        </div>
+
     <!-- Main Content Wrapper -->
     <div class="flex-1 flex flex-col min-w-0 overflow-y-auto content-wrapper">
         <!-- Top Navbar -->

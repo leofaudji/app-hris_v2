@@ -112,18 +112,18 @@ require_once __DIR__ . '/includes/bootstrap.php';
         const passwordInput = document.querySelector('#password');
         if (togglePasswordBtn && passwordInput) {
             togglePasswordBtn.addEventListener('click', function() {
-                // toggle the type attribute
+                /* toggle the type attribute */
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
                 
-                // toggle the eye / eye-slash icon
+                /* toggle the eye / eye-slash icon */
                 const icon = this.querySelector('i');
                 icon.classList.toggle('bi-eye');
                 icon.classList.toggle('bi-eye-slash');
             });
         }
 
-        // Apply user-defined theme color from localStorage
+        /* Apply user-defined theme color from localStorage */
         (function() {
             const savedColor = localStorage.getItem('theme_color');
             if (savedColor) {

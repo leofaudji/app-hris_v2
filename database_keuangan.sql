@@ -662,6 +662,9 @@ CREATE TABLE `role_permissions` (
 -- Tambah kolom role_id
 ALTER TABLE `users` ADD COLUMN `role_id` int(11) DEFAULT NULL AFTER `password`;
 
+-- Tambah kolom is_active
+ALTER TABLE `users` ADD COLUMN `is_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `role`;
+
 -- Tambah Foreign Key
 ALTER TABLE `users` ADD CONSTRAINT `fk_users_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE SET NULL;
 
@@ -731,4 +734,3 @@ CREATE TABLE `role_menus` (
 
 -- (Opsional) Anda bisa menghapus tabel 'menus' jika sudah tidak dipakai
 -- DROP TABLE IF EXISTS `menus`;
-

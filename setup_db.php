@@ -397,6 +397,12 @@ if ($check_col_karyawan_kontrak && $check_col_karyawan_kontrak->num_rows == 0) {
     log_message("Kolom 'tanggal_berakhir_kontrak' berhasil ditambahkan ke tabel hr_karyawan.");
 }
 
+$check_col_users_active = $conn_setup->query("SHOW COLUMNS FROM `users` LIKE 'is_active'");
+if ($check_col_users_active && $check_col_users_active->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `users` ADD COLUMN `is_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `role`");
+    log_message("Kolom 'is_active' berhasil ditambahkan ke tabel users.");
+}
+
 // Insert default settings for Tax & BPJS if not exists
 $default_tax_settings = [
     'ptkp_tk0' => '54000000',

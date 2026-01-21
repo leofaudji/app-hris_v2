@@ -22,7 +22,7 @@ require_once __DIR__ . '/RateLimiter.php';
  */
 function attempt_login_with_cookie($selector, $validator) {
     $conn = Database::getInstance()->getConnection();
-    $stmt = $conn->prepare("SELECT id, username, role, nama_lengkap, remember_validator_hash FROM users WHERE remember_selector = ?");
+    $stmt = $conn->prepare("SELECT id, username, role, role_id, nama_lengkap, remember_validator_hash FROM users WHERE remember_selector = ?");
     $stmt->bind_param("s", $selector);
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
@@ -38,6 +38,7 @@ function attempt_login_with_cookie($selector, $validator) {
             $_SESSION['username'] = $user['username'];
             $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
             $_SESSION['role'] = $user['role'];
+            $_SESSION['role_id'] = $user['role_id'];
 
             // --- Token Rotation (Penting untuk Keamanan) ---
             // Buat token baru untuk mencegah pencurian cookie

@@ -11,6 +11,7 @@ if (!isset($app_name)) {
     </footer>
 
 </div> <!-- end main content wrapper -->
+</div> <!-- end content area wrapper -->
 </div> <!-- end #app-container -->
 
 <!-- Toast Container -->

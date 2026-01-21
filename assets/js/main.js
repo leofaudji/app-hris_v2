@@ -112,7 +112,7 @@ function formatCurrencyAccounting(value) {
  * @param {string} path The path of the page being navigated to.
  */
 function updateActiveSidebarLink(path) {
-    const sidebarLinks = document.querySelectorAll('#sidebar a');
+    const sidebarLinks = document.querySelectorAll('#sidebar-nav a');
     const cleanCurrentPath = path.length > 1 ? path.replace(/\/$/, "") : path;
 
     sidebarLinks.forEach(link => {
@@ -157,13 +157,12 @@ function updateActiveSidebarLink(path) {
  */
 async function navigate(url, pushState = true) {
     const mainContent = document.getElementById('main-content');
-    const loadingBar = document.getElementById('spa-loading-bar');
+    const spinnerOverlay = document.getElementById('spa-spinner-overlay');
     if (!mainContent) return;
 
-    // --- Start Loading (Not implemented in Tailwind version, can be added) ---
-    if (loadingBar) {
-        loadingBar.classList.remove('is-finished'); // Reset state
-        loadingBar.classList.add('is-loading');
+    // --- Start Loading ---
+    if (spinnerOverlay) {
+        spinnerOverlay.classList.remove('opacity-0', 'pointer-events-none');
     }
 
     // 1. Mulai animasi fade-out
@@ -178,11 +177,6 @@ async function navigate(url, pushState = true) {
                 'X-SPA-Request': 'true'
             }
         });
-
-        // --- Finish Loading ---
-        if (loadingBar) {
-            loadingBar.classList.add('is-finished');
-        }
 
         if (!response.ok) {
             throw new Error(`Server responded with status ${response.status}`);
@@ -231,12 +225,9 @@ async function navigate(url, pushState = true) {
         // Tampilkan juga pesan error dengan fade-in
         mainContent.style.opacity = '1';
     } finally {
-        // Hide the loading bar after a short delay to let the 'finished' animation complete
-        if (loadingBar) {
-            setTimeout(() => {
-                loadingBar.classList.remove('is-loading');
-                loadingBar.classList.remove('is-finished');
-            }, 500); // 500ms delay
+        // Hide the spinner overlay
+        if (spinnerOverlay) {
+            spinnerOverlay.classList.add('opacity-0', 'pointer-events-none');
         }
     }
 }
@@ -286,6 +277,7 @@ function runPageScripts(path) {
         '/neraca-saldo': { script: 'neraca_saldo.js', init: 'initNeracaSaldoPage' },
         '/roles': { script: 'roles.js', init: 'initRolesPage' },
         '/hr/karyawan': { script: 'hr/karyawan.js', init: 'initKaryawanPage' },
+        '/hr/dashboard': { script: 'hr/dashboard.js', init: 'initHrDashboardPage' },
         '/hr/jabatan': { script: 'hr/jabatan.js', init: 'initJabatanPage' },
         '/hr/divisi': { script: 'hr/divisi.js', init: 'initDivisiPage' },
         '/hr/master-dashboard': { script: 'hr/master_dashboard.js', init: 'initMasterDashboardPage' },
@@ -303,6 +295,14 @@ function runPageScripts(path) {
         '/hr/payroll-dashboard': { script: 'hr/payroll_dashboard.js', init: 'initPayrollDashboardPage' },
         '/hr/laporan': { script: 'hr/laporan.js', init: 'initLaporanPage' },
         '/hr/pengaturan-pajak': { script: 'hr/pengaturan_pajak.js', init: 'initPengaturanPajakPage' },
+        '/hr/manajemen-klaim': { script: 'hr/manajemen_klaim.js', init: 'initManajemenKlaimPage' },
+        '/hr/lembur': { script: 'hr/lembur.js', init: 'initLemburPage' },
+        '/hr/peringatan-kontrak': { script: 'hr/peringatan_kontrak.js', init: 'initPeringatanKontrakPage' },
+        '/hr/kpi-templates': { script: 'hr/kpi_templates.js', init: 'initKpiTemplatesPage' },
+        '/hr/penilaian-kinerja': { script: 'hr/penilaian_kinerja.js', init: 'initPenilaianKinerjaPage' },
+        '/hr/pengumuman': { script: 'hr/pengumuman.js', init: 'initPengumumanPage' },
+        '/hr/rekrutmen': { script: 'hr/rekrutmen.js', init: 'initRekrutmenPage' },
+        '/hr/offboarding': { script: 'hr/offboarding.js', init: 'initOffboardingPage' },
         '/hr/portal/dashboard': { script: 'hr/portal/dashboard.js', init: 'initPortalDashboardPage' },
         '/hr/portal/profil': { script: 'hr/portal/profil.js', init: 'initPortalProfilPage' },
         '/hr/portal/absensi': { script: 'hr/portal/absensi.js', init: 'initPortalAbsensiPage' },
