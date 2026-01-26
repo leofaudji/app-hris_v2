@@ -17,6 +17,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= base_url('/assets/css/style.css') ?>">
+    <link rel="icon" href="<?= base_url('assets/favicon.png') ?>">
     <?php
     $login_bg_color = get_setting('login_bg_color', '#075E54');
     $login_btn_color = get_setting('login_btn_color', '#25D366');
@@ -25,6 +26,17 @@ require_once __DIR__ . '/includes/bootstrap.php';
         :root {
             --brand-bg-color: <?= htmlspecialchars($login_bg_color) ?>;
             --brand-btn-color: <?= htmlspecialchars($login_btn_color) ?>;
+        }
+        /* Animasi Kursor Ketik */
+        @keyframes cursor-blink {
+            0%, 100% { border-color: transparent; }
+            50% { border-color: white; }
+        }
+        .typing-cursor {
+            border-right: 3px solid white;
+            animation: cursor-blink 0.75s step-end infinite;
+            padding-right: 5px;
+            display: inline-block;
         }
     </style>
     <script>
@@ -45,21 +57,27 @@ require_once __DIR__ . '/includes/bootstrap.php';
         }
     </script>
 </head>
-<body class="bg-gray-50 font-sans">
-    <div class="min-h-screen flex flex-wrap">
+<body class="bg-gray-50 font-sans relative">
+    <!-- Background Doodle Pattern -->
+    <div class="fixed inset-0 z-0 pointer-events-none" style="background-image: url('<?= base_url('assets/doodle.png') ?>'); background-repeat: repeat; background-size: 400px auto; opacity: 1.15; background-attachment: fixed;"></div>
+
+    <div class="min-h-screen flex flex-wrap relative z-10">
         <!-- Left Column -->
-        <div class="hidden md:flex w-full md:w-1/2 lg:w-7/12 bg-brand-bg text-white items-center justify-center p-12">
-            <div>
+        <div class="hidden md:flex w-full md:w-1/2 lg:w-7/12 bg-gradient-to-br from-brand-bg to-gray-900 text-white items-center justify-center p-12 relative overflow-hidden">
+            <!-- Doodle Overlay for Left Column -->
+            <div class="absolute inset-0 pointer-events-none" style="background-image: url('<?= base_url('assets/doodle.png') ?>'); background-repeat: repeat; background-size: 400px auto; opacity: 0.2; background-attachment: fixed; mix-blend-mode: overlay;"></div>
+            <div class="relative z-10">
                 <h1 class="text-5xl font-bold mb-4"><?= get_setting('app_name', 'Aplikasi Keuangan') ?></h1>
-                <p class="text-xl opacity-90">Solusi pencatatan keuangan yang mudah dan terintegrasi.</p>
+                <p class="text-xl opacity-90 typing-cursor" id="typing-text"></p>
             </div>
         </div>
         
         <!-- Right Column -->
-        <div class="w-full md:w-1/2 lg:w-5/12 flex items-center justify-center p-6">
-            <div class="bg-white shadow-xl rounded-2xl w-full max-w-md p-8 border border-gray-100">
+        <div class="w-full md:w-1/2 lg:w-5/12 flex flex-col items-center justify-center p-6 relative">
+            <div class="flex-1 flex items-center justify-center w-full">
+            <div class="bg-white/70 backdrop-blur-md shadow-xl rounded-2xl w-full max-w-md p-8 border border-white/50">
                 <div class="text-center mb-8">
-                    <img src="<?= base_url(get_setting('app_logo', 'assets/img/logo.png')) ?>" alt="Logo" class="h-12 mx-auto mb-4">
+                    <img src="<?= base_url(get_setting('app_logo', 'assets/img/logo.png')) ?>" alt="Logo" class="h-12 mx-auto mb-4 hover:scale-110 transition-transform duration-300">
                     <h3 class="text-2xl font-semibold text-gray-800">Selamat Datang</h3>
                 </div>
                         <?php if (isset($_SESSION['login_error'])): ?>
@@ -93,6 +111,13 @@ require_once __DIR__ . '/includes/bootstrap.php';
                                 <button id="login-btn" class="w-full bg-brand-btn hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex justify-center items-center" type="submit">Login</button>
                             </div>
                         </form>
+            </div>
+            </div>
+            <div class="w-full text-center py-4 z-10">
+                <a href="https://crudworks.com" target="_blank" class="inline-block">
+                    <img src="<?= base_url('assets/logo.png') ?>" alt="Logo" class="h-6 mx-auto mb-2 opacity-80 hover:opacity-100 hover:scale-110 transition-all duration-300">
+                </a>
+                <p class="text-sm text-gray-500 opacity-80">&copy; <?= date('Y') ?> All rights reserved.</p>
             </div>
         </div>
     </div>
@@ -130,6 +155,22 @@ require_once __DIR__ . '/includes/bootstrap.php';
                 document.documentElement.style.setProperty('--brand-btn-color', savedColor);
             }
         })();
+
+    // Efek Mengetik (Typing Effect)
+    document.addEventListener('DOMContentLoaded', function() {
+        const text = "Satu Platform Cerdas untuk Mengelola Seluruh Aspek Bisnis Anda.";
+        const element = document.getElementById('typing-text');
+        let i = 0;
+        
+        function typeWriter() {
+            if (i < text.length) {
+                element.textContent += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, 50); // Kecepatan mengetik (50ms)
+            }
+        }
+        setTimeout(typeWriter, 500); // Mulai mengetik setelah 0.5 detik
+    });
     </script>
 </body>
 </html>

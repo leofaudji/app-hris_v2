@@ -81,13 +81,24 @@ try {
             $jumlah = (float)$_POST['jumlah'];
             $keterangan = $_POST['keterangan'];
             
-            // Handle File Upload (Sederhana)
-            $bukti_file = null;
-            // Implementasi upload file bisa ditambahkan di sini (move_uploaded_file)
-            // Untuk demo, kita skip upload fisik
+            // Handle File Upload
+            $bukti_path = null;
+            if (isset($_FILES['bukti_file']) && $_FILES['bukti_file']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = PROJECT_ROOT . '/uploads/klaim/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                
+                $fileName = time() . '_' . basename($_FILES['bukti_file']['name']);
+                $targetPath = $uploadDir . $fileName;
+                
+                if (move_uploaded_file($_FILES['bukti_file']['tmp_name'], $targetPath)) {
+                    $bukti_path = 'uploads/klaim/' . $fileName;
+                } else {
+                    throw new Exception("Gagal mengupload file bukti.");
+                }
+            }
 
-            $stmt = $conn->prepare("INSERT INTO hr_klaim (karyawan_id, jenis_klaim_id, tanggal_klaim, jumlah, keterangan, status) VALUES (?, ?, ?, ?, ?, 'pending')");
-            $stmt->bind_param("iisds", $karyawan_id, $jenis_klaim_id, $tanggal, $jumlah, $keterangan);
+            $stmt = $conn->prepare("INSERT INTO hr_klaim (karyawan_id, jenis_klaim_id, tanggal_klaim, jumlah, keterangan, bukti_file, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')");
+            $stmt->bind_param("iisdss", $karyawan_id, $jenis_klaim_id, $tanggal, $jumlah, $keterangan, $bukti_path);
             
             if ($stmt->execute()) {
                 echo json_encode(['success' => true, 'message' => 'Klaim berhasil diajukan.']);

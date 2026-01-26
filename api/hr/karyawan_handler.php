@@ -13,7 +13,7 @@ $conn = Database::getInstance()->getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
-    if ($method === 'GET') {
+    if ($method === 'GET' && (!isset($_GET['action']) || $_GET['action'] === 'list')) {
         // Ambil data karyawan dengan filter pencarian dan status
         $sql = "SELECT k.*, j.nama_jabatan, d.nama_divisi, jk.nama_jadwal, kt.nama_kantor, gg.nama_golongan as nama_golongan_gaji,
                 (SELECT id FROM hr_evaluasi_probation WHERE karyawan_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_probation_evaluation_id,
@@ -56,6 +56,83 @@ try {
         $data = $result->fetch_all(MYSQLI_ASSOC);
         
         echo json_encode(['success' => true, 'data' => $data]);
+
+    } elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_org_chart_data') {
+        // Ambil data untuk struktur organisasi
+        // Asumsi: tabel hr_karyawan memiliki kolom atasan_id yang merujuk ke id atasan
+        // Jika kolom tersebut belum ada, query ini mungkin perlu disesuaikan atau kolom ditambahkan
+        $divisi_id = !empty($_GET['divisi_id']) ? (int)$_GET['divisi_id'] : null;
+        
+        $sql = "SELECT k.id, k.nama_lengkap, j.nama_jabatan, d.nama_divisi, k.atasan_id, u.foto_profil
+                FROM hr_karyawan k
+                LEFT JOIN hr_jabatan j ON k.jabatan_id = j.id
+                LEFT JOIN hr_divisi d ON k.divisi_id = d.id
+                LEFT JOIN users u ON k.user_id = u.id
+                WHERE k.status = 'aktif'";
+        
+        if ($divisi_id) {
+            $sql .= " AND k.divisi_id = $divisi_id";
+        }
+        
+        $result = $conn->query($sql);
+        $data = $result->fetch_all(MYSQLI_ASSOC);
+        
+        echo json_encode(['success' => true, 'data' => $data]);
+
+    } elseif ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_detail') {
+        $id = (int)$_GET['id'];
+        $sql = "SELECT k.*, j.nama_jabatan, d.nama_divisi, jk.nama_jadwal, kt.nama_kantor, u.foto_profil
+                FROM hr_karyawan k 
+                LEFT JOIN hr_jabatan j ON k.jabatan_id = j.id 
+                LEFT JOIN hr_jadwal_kerja jk ON k.jadwal_kerja_id = jk.id
+                LEFT JOIN hr_divisi d ON k.divisi_id = d.id
+                LEFT JOIN hr_kantor kt ON k.kantor_id = kt.id
+                LEFT JOIN users u ON k.user_id = u.id
+                WHERE k.id = ?";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $data = $stmt->get_result()->fetch_assoc();
+        
+        if ($data) {
+            // Inisialisasi default array kosong
+            $data['riwayat_jabatan'] = [];
+            $data['riwayat_gaji'] = [];
+
+            // Fetch job history
+            $stmt_hist = $conn->prepare("
+                SELECT rhj.tanggal_mulai, rhj.tanggal_selesai, hj.nama_jabatan 
+                FROM hr_riwayat_jabatan rhj
+                LEFT JOIN hr_jabatan hj ON rhj.jabatan_id = hj.id
+                WHERE rhj.karyawan_id = ?
+                ORDER BY rhj.tanggal_mulai DESC
+            ");
+            if ($stmt_hist) {
+                $stmt_hist->bind_param("i", $id);
+                if ($stmt_hist->execute()) $data['riwayat_jabatan'] = $stmt_hist->get_result()->fetch_all(MYSQLI_ASSOC);
+            }
+            $stmt_hist->close();
+
+            // Fetch salary history
+            $stmt_salary = $conn->prepare("
+                SELECT tanggal_perubahan, gaji_lama, gaji_baru, keterangan
+                FROM hr_riwayat_gaji
+                WHERE karyawan_id = ?
+                ORDER BY tanggal_perubahan DESC
+            ");
+            if ($stmt_salary) {
+                $stmt_salary->bind_param("i", $id);
+                if ($stmt_salary->execute()) $data['riwayat_gaji'] = $stmt_salary->get_result()->fetch_all(MYSQLI_ASSOC);
+            }
+            $stmt_salary->close();
+        }
+        
+        if ($data) {
+            echo json_encode(['success' => true, 'data' => $data]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Karyawan tidak ditemukan']);
+        }
 
     } elseif ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_probation_history') {
         $karyawan_id = (int)$_POST['karyawan_id'];
@@ -100,6 +177,7 @@ try {
             $nip = trim($_POST['nip']);
             $nama_lengkap = trim($_POST['nama_lengkap']);
             $jabatan_id = !empty($_POST['jabatan_id']) ? (int)$_POST['jabatan_id'] : null;
+            $atasan_id = !empty($_POST['atasan_id']) ? (int)$_POST['atasan_id'] : null;
             $jadwal_kerja_id = !empty($_POST['jadwal_kerja_id']) ? (int)$_POST['jadwal_kerja_id'] : null;
             $divisi_id = !empty($_POST['divisi_id']) ? (int)$_POST['divisi_id'] : null;
             $kantor_id = !empty($_POST['kantor_id']) ? (int)$_POST['kantor_id'] : null;
@@ -132,6 +210,17 @@ try {
             $stmt_check->close();
 
             if ($id) {
+                if ($atasan_id == $id) {
+                    throw new Exception("Karyawan tidak bisa menjadi atasan untuk dirinya sendiri.");
+                }
+
+                // Get old jabatan_id before update
+                $stmt_old_jabatan = $conn->prepare("SELECT jabatan_id FROM hr_karyawan WHERE id = ?");
+                $stmt_old_jabatan->bind_param("i", $id);
+                $stmt_old_jabatan->execute();
+                $old_jabatan_id = $stmt_old_jabatan->get_result()->fetch_assoc()['jabatan_id'];
+                $stmt_old_jabatan->close();
+
                 // Cek perubahan gaji/golongan untuk riwayat
                 $stmt_old = $conn->prepare("SELECT k.golongan_gaji_id, gg.gaji_pokok FROM hr_karyawan k LEFT JOIN hr_golongan_gaji gg ON k.golongan_gaji_id = gg.id WHERE k.id = ?");
                 $stmt_old->bind_param("i", $id);
@@ -162,15 +251,40 @@ try {
                 }
 
                 // Update Data
-                $stmt = $conn->prepare("UPDATE hr_karyawan SET nip=?, nama_lengkap=?, jabatan_id=?, jadwal_kerja_id=?, divisi_id=?, kantor_id=?, golongan_gaji_id=?, tanggal_masuk=?, tanggal_berakhir_kontrak=?, status=?, npwp=?, status_ptkp=?, ikut_bpjs_kes=?, ikut_bpjs_tk=? WHERE id=?");
-                $stmt->bind_param("ssiiiiisssssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk, $id);
+                $stmt = $conn->prepare("UPDATE hr_karyawan SET nip=?, nama_lengkap=?, jabatan_id=?, atasan_id=?, jadwal_kerja_id=?, divisi_id=?, kantor_id=?, golongan_gaji_id=?, tanggal_masuk=?, tanggal_berakhir_kontrak=?, status=?, npwp=?, status_ptkp=?, ikut_bpjs_kes=?, ikut_bpjs_tk=? WHERE id=?");
+                $stmt->bind_param("ssiiiiiisssssiii", $nip, $nama_lengkap, $jabatan_id, $atasan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk, $id);
             } else {
                 // Insert Data Baru
-                $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status, npwp, status_ptkp, ikut_bpjs_kes, ikut_bpjs_tk) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssiiiiisssssii", $nip, $nama_lengkap, $jabatan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk);
+                $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, atasan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status, npwp, status_ptkp, ikut_bpjs_kes, ikut_bpjs_tk) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssiiiiiisssssii", $nip, $nama_lengkap, $jabatan_id, $atasan_id, $jadwal_kerja_id, $divisi_id, $kantor_id, $golongan_gaji_id, $tanggal_masuk, $tanggal_berakhir_kontrak, $status, $npwp, $status_ptkp, $ikut_bpjs_kes, $ikut_bpjs_tk);
             }
 
             if ($stmt->execute()) {
+                if ($id) { // UPDATE
+                    // After successful update, check if jabatan changed
+                    if ($old_jabatan_id != $jabatan_id && $jabatan_id !== null) {
+                        // End the previous job history record
+                        $stmt_end_hist = $conn->prepare("UPDATE hr_riwayat_jabatan SET tanggal_selesai = CURDATE() WHERE karyawan_id = ? AND tanggal_selesai IS NULL");
+                        $stmt_end_hist->bind_param("i", $id);
+                        $stmt_end_hist->execute();
+                        $stmt_end_hist->close();
+
+                        // Insert new job history record
+                        $stmt_new_hist = $conn->prepare("INSERT INTO hr_riwayat_jabatan (karyawan_id, jabatan_id, tanggal_mulai) VALUES (?, ?, CURDATE())");
+                        $stmt_new_hist->bind_param("ii", $id, $jabatan_id);
+                        $stmt_new_hist->execute();
+                        $stmt_new_hist->close();
+                    }
+                } else { // INSERT
+                    $karyawan_id = $conn->insert_id;
+                    // Insert initial job history
+                    if ($jabatan_id) {
+                        $stmt_hist = $conn->prepare("INSERT INTO hr_riwayat_jabatan (karyawan_id, jabatan_id, tanggal_mulai) VALUES (?, ?, ?)");
+                        $stmt_hist->bind_param("iis", $karyawan_id, $jabatan_id, $tanggal_masuk);
+                        $stmt_hist->execute();
+                        $stmt_hist->close();
+                    }
+                }
                 echo json_encode(['success' => true, 'message' => 'Data karyawan berhasil disimpan.']);
             } else {
                 throw new Exception("Gagal menyimpan data: " . $stmt->error);
@@ -218,6 +332,24 @@ try {
             } catch (Exception $e) {
                 $conn->rollback();
                 throw $e;
+            }
+        } elseif ($action === 'update_atasan') {
+            $karyawan_id = (int)$_POST['karyawan_id'];
+            $atasan_id = (int)$_POST['atasan_id'];
+
+            if ($karyawan_id === $atasan_id) {
+                throw new Exception("Karyawan tidak bisa menjadi atasan untuk dirinya sendiri.");
+            }
+
+            // TODO: Tambahkan validasi siklus (circular dependency) di sini jika diperlukan
+
+            $stmt = $conn->prepare("UPDATE hr_karyawan SET atasan_id = ? WHERE id = ?");
+            $stmt->bind_param("ii", $atasan_id, $karyawan_id);
+            
+            if ($stmt->execute()) {
+                echo json_encode(['success' => true, 'message' => 'Atasan berhasil diperbarui.']);
+            } else {
+                throw new Exception("Gagal memperbarui atasan: " . $stmt->error);
             }
         } else {
             throw new Exception("Action tidak valid.");

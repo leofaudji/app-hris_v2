@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS `hr_karyawan` (
   `nip` varchar(50) NOT NULL,
   `nama_lengkap` varchar(100) NOT NULL,
   `jabatan_id` int(11) DEFAULT NULL,
+  `atasan_id` int(11) DEFAULT NULL,
   `jadwal_kerja_id` int(11) DEFAULT NULL,
   `divisi_id` int(11) DEFAULT NULL,
   `kantor_id` int(11) DEFAULT NULL,
@@ -147,16 +148,28 @@ CREATE TABLE IF NOT EXISTS `hr_karyawan` (
   PRIMARY KEY (`id`),
   KEY `jadwal_kerja_id` (`jadwal_kerja_id`),
   KEY `jabatan_id` (`jabatan_id`),
+  KEY `atasan_id` (`atasan_id`),
   KEY `divisi_id` (`divisi_id`),
   KEY `kantor_id` (`kantor_id`),
   KEY `golongan_gaji_id` (`golongan_gaji_id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `fk_hr_karyawan_jabatan` FOREIGN KEY (`jabatan_id`) REFERENCES `hr_jabatan` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_hr_karyawan_atasan` FOREIGN KEY (`atasan_id`) REFERENCES `hr_karyawan` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_hr_karyawan_jadwal` FOREIGN KEY (`jadwal_kerja_id`) REFERENCES `hr_jadwal_kerja` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_hr_karyawan_divisi` FOREIGN KEY (`divisi_id`) REFERENCES `hr_divisi` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_hr_karyawan_kantor` FOREIGN KEY (`kantor_id`) REFERENCES `hr_kantor` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_hr_karyawan_golongan_gaji` FOREIGN KEY (`golongan_gaji_id`) REFERENCES `hr_golongan_gaji` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_hr_karyawan_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_riwayat_jabatan` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `jabatan_id` int(11) NOT NULL,
+  `tanggal_mulai` date NOT NULL,
+  `tanggal_selesai` date DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `hr_absensi` (
@@ -258,8 +271,10 @@ CREATE TABLE IF NOT EXISTS `hr_pengajuan_cuti` (
   `tanggal_selesai` date NOT NULL,
   `jumlah_hari` int(3) NOT NULL,
   `keterangan` text,
+  `lampiran_file` varchar(255) DEFAULT NULL,
   `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-  `approved_by` int(11) DEFAULT NULL,
+  `approved_by` text COMMENT 'JSON array of user IDs who approved',
+  `next_approver_id` int(11) DEFAULT NULL COMMENT 'User ID of the next person in the approval chain',
   `approved_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -282,6 +297,12 @@ if ($conn_setup->multi_query($sql_hr_cuti)) {
     log_message("Struktur tabel Manajemen Cuti berhasil dibuat.");
 } else {
     log_error_and_die("Error saat setup tabel Manajemen Cuti", $conn_setup->error);
+}
+
+$check_col_lampiran = $conn_setup->query("SHOW COLUMNS FROM `hr_pengajuan_cuti` LIKE 'lampiran_file'");
+if ($check_col_lampiran && $check_col_lampiran->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_pengajuan_cuti` ADD COLUMN `lampiran_file` VARCHAR(255) DEFAULT NULL AFTER `keterangan`");
+    log_message("Kolom 'lampiran_file' berhasil ditambahkan ke tabel hr_pengajuan_cuti.");
 }
 
 // --- Populate HR Data & Create Master Tables ---
@@ -324,6 +345,12 @@ $check_col = $conn_setup->query("SHOW COLUMNS FROM `hr_absensi` LIKE 'golongan'"
 if ($check_col && $check_col->num_rows == 0) {
     $conn_setup->query("ALTER TABLE `hr_absensi` ADD COLUMN `golongan` VARCHAR(50) DEFAULT NULL AFTER `tanggal`");
     log_message("Kolom 'golongan' berhasil ditambahkan ke tabel hr_absensi.");
+}
+
+$check_col_atasan = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'atasan_id'");
+if ($check_col_atasan && $check_col_atasan->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `atasan_id` INT(11) DEFAULT NULL AFTER `jabatan_id`, ADD KEY `atasan_id` (`atasan_id`), ADD CONSTRAINT `fk_hr_karyawan_atasan` FOREIGN KEY (`atasan_id`) REFERENCES `hr_karyawan` (`id`) ON DELETE SET NULL;");
+    log_message("Kolom 'atasan_id' berhasil ditambahkan ke tabel hr_karyawan.");
 }
 
 $check_col_jadwal = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'jadwal_kerja_id'");
@@ -401,6 +428,12 @@ $check_col_users_active = $conn_setup->query("SHOW COLUMNS FROM `users` LIKE 'is
 if ($check_col_users_active && $check_col_users_active->num_rows == 0) {
     $conn_setup->query("ALTER TABLE `users` ADD COLUMN `is_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `role`");
     log_message("Kolom 'is_active' berhasil ditambahkan ke tabel users.");
+}
+
+$check_col_users_foto = $conn_setup->query("SHOW COLUMNS FROM `users` LIKE 'foto_profil'");
+if ($check_col_users_foto && $check_col_users_foto->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `users` ADD COLUMN `foto_profil` VARCHAR(255) DEFAULT NULL AFTER `nama_lengkap`");
+    log_message("Kolom 'foto_profil' berhasil ditambahkan ke tabel users.");
 }
 
 // Insert default settings for Tax & BPJS if not exists

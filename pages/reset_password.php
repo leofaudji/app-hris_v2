@@ -42,6 +42,7 @@ if (!$user) {
                         <?php endif; ?>
                         <form action="<?= base_url('/reset-password') ?>" method="POST">
                             <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+                            <input type="hidden" name="csrf_token" value="<?= get_csrf_token() ?>">
                             <div class="mb-3">
                                 <label for="new_password" class="form-label">Password Baru</label>
                                 <input class="form-control" type="password" name="new_password" id="new_password" required minlength="6">

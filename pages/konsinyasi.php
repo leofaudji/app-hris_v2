@@ -9,13 +9,13 @@ if (!$is_spa_request) {
     <h1 class="text-2xl font-semibold text-gray-800 dark:text-white flex items-center gap-2"><i class="bi bi-box-seam"></i> Manajemen Konsinyasi</h1>
 </div>
 
-<div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-    <div class="-mb-px flex space-x-4" aria-label="Tabs" role="tablist" id="konsinyasiTab">
-        <button type="button" class="konsinyasi-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#pemasok-pane">Kelola Pemasok</button>
-        <button type="button" class="konsinyasi-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#barang-pane">Kelola Barang</button>
-        <button type="button" class="konsinyasi-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#penjualan-pane">Penjualan Konsinyasi</button>
-        <button type="button" class="konsinyasi-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#pembayaran-pane">Pembayaran Utang</button>
-    </div>
+<div class="sticky top-16 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm mb-4 border-b border-gray-200 dark:border-gray-700 -mx-4 px-4 sm:-mx-6 sm:px-6 transition-all">
+    <nav class="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs" id="konsinyasiTab">
+        <button type="button" class="konsinyasi-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#pemasok-pane">Kelola Pemasok</button>
+        <button type="button" class="konsinyasi-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#barang-pane">Kelola Barang</button>
+        <button type="button" class="konsinyasi-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#penjualan-pane">Penjualan Konsinyasi</button>
+        <button type="button" class="konsinyasi-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#pembayaran-pane">Pembayaran Utang</button>
+    </nav>
 </div>
 
 <div id="konsinyasiTabContent">

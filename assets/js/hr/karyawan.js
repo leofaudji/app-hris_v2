@@ -3,6 +3,7 @@ function initKaryawanPage() {
         loadKaryawan();
         loadJabatanOptions();
         loadDivisiOptions();
+        loadAtasanOptions();
         loadJadwalKerjaOptions();
         loadKantorOptions();
         loadGolonganGajiOptions();
@@ -84,7 +85,7 @@ function loadKaryawan() {
                     const itemJson = JSON.stringify(item).replace(/'/g, "&#39;");
 
                     const row = `
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <tr id="karyawan-${item.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${item.nip}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800 dark:text-gray-200">${item.nama_lengkap}</td>
                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
@@ -146,6 +147,22 @@ function loadJabatanOptions() {
         });
 }
 
+function loadAtasanOptions() {
+    fetch(`${basePath}/api/hr/karyawan?status=aktif`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('atasan_id');
+                if (select) {
+                    select.innerHTML = '<option value="">Pilih Atasan</option>';
+                    data.data.forEach(karyawan => {
+                        select.insertAdjacentHTML('beforeend', `<option value="${karyawan.id}">${karyawan.nama_lengkap} - ${karyawan.nama_jabatan || ''}</option>`);
+                    });
+                }
+            }
+        });
+}
+
 function initiateOffboarding(id, nama) {
     document.getElementById('offboarding_karyawan_id').value = id;
     document.getElementById('offboarding_karyawan_nama').textContent = nama;
@@ -165,6 +182,7 @@ function cetakEvaluasiProbation(id) {
     form.target = '_blank';
 
     const params = { report: 'evaluasi-probation', id: id };
+    params.csrf_token = getCsrfToken(); // Menggunakan helper function
     for (const key in params) {
         const hiddenField = document.createElement('input');
         hiddenField.type = 'hidden';
@@ -368,12 +386,17 @@ function editKaryawan(item) {
     document.getElementById('karyawan-action').value = 'edit';
     document.getElementById('modal-title').innerText = 'Edit Karyawan';
 
-    document.getElementById('nip').value = item.nip;
-    document.getElementById('nama_lengkap').value = item.nama_lengkap;
-    document.getElementById('jabatan_id').value = item.jabatan_id;
-    document.getElementById('tanggal_masuk').value = item.tanggal_masuk;
+    document.getElementById('nip').value = item.nip || '';
+    document.getElementById('nama_lengkap').value = item.nama_lengkap || '';
+    document.getElementById('jabatan_id').value = item.jabatan_id || '';
+    document.getElementById('atasan_id').value = item.atasan_id || '';
+    document.getElementById('divisi_id').value = item.divisi_id || '';
+    document.getElementById('kantor_id').value = item.kantor_id || '';
+    document.getElementById('golongan_gaji_id').value = item.golongan_gaji_id || '';
+    document.getElementById('jadwal_kerja_id').value = item.jadwal_kerja_id || '';
+    document.getElementById('tanggal_masuk').value = item.tanggal_masuk || '';
     document.getElementById('tanggal_berakhir_kontrak').value = item.tanggal_berakhir_kontrak || '';
-    document.getElementById('status').value = item.status;
+    document.getElementById('status').value = item.status || 'aktif';
     document.getElementById('npwp').value = item.npwp || '';
     document.getElementById('status_ptkp').value = item.status_ptkp || 'TK/0';
     document.getElementById('ikut_bpjs_kes').checked = item.ikut_bpjs_kes == 1;

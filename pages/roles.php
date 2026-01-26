@@ -20,16 +20,6 @@ if (isset($_POST['action'])) {
             $role = $stmt->get_result()->fetch_assoc();
             
             if ($role) {
-                // Ambil permissions
-                $stmt_perm = $conn->prepare("SELECT permission_id FROM role_permissions WHERE role_id = ?");
-                $stmt_perm->bind_param("i", $id);
-                $stmt_perm->execute();
-                $res_perm = $stmt_perm->get_result();
-                $perms = [];
-                while($row = $res_perm->fetch_assoc()) {
-                    $perms[] = (int)$row['permission_id'];
-                }
-                $role['permissions'] = $perms;
 
                 // Ambil menus
                 $stmt_menu = $conn->prepare("SELECT menu_key FROM role_menus WHERE role_id = ?");
@@ -64,7 +54,6 @@ if (isset($_POST['action'])) {
             $id = $_POST['id'] ?? '';
             $name = $_POST['name'];
             $description = $_POST['description'];
-            $permissions = $_POST['permissions'] ?? []; // Array ID permission
             $menus = $_POST['menus'] ?? []; // Array ID menu
 
             $conn->begin_transaction();
@@ -88,16 +77,6 @@ if (isset($_POST['action'])) {
             }
 
             $role_id = (int)$role_id;
-            // Update Permissions (Hapus semua lalu insert baru)
-            $conn->query("DELETE FROM role_permissions WHERE role_id = $role_id");
-            
-            if (!empty($permissions)) {
-                $stmt_p = $conn->prepare("INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)");
-                foreach ($permissions as $perm_id) {
-                    $stmt_p->bind_param("ii", $role_id, $perm_id);
-                    $stmt_p->execute();
-                }
-            }
 
             // Update Menus (Hapus semua lalu insert baru)
             $conn->query("DELETE FROM role_menus WHERE role_id = $role_id");
@@ -154,7 +133,6 @@ $roles_res = $conn->query("
     GROUP BY r.id 
     ORDER BY r.id ASC
 ");
-$perms_res = $conn->query("SELECT * FROM permissions ORDER BY slug ASC");
 $menu_items = require PROJECT_ROOT . '/config/menus.php';
 ?>
 
@@ -255,23 +233,6 @@ $menu_items = require PROJECT_ROOT . '/config/menus.php';
                                     <?php endif; ?>
                                 <?php endif; ?>
                             <?php endforeach; ?>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hak Akses (Permissions)</label>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-2">
-                            <?php while($perm = $perms_res->fetch_assoc()): ?>
-                            <div class="flex items-start">
-                                <div class="flex items-center h-5">
-                                    <input id="perm_<?= $perm['id'] ?>" name="permissions[]" value="<?= $perm['id'] ?>" type="checkbox" class="focus:ring-primary h-4 w-4 text-primary border-gray-300 rounded">
-                                </div>
-                                <div class="ml-3 text-sm">
-                                    <label for="perm_<?= $perm['id'] ?>" class="font-medium text-gray-700 dark:text-gray-300"><?= htmlspecialchars($perm['name']) ?></label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400"><?= htmlspecialchars($perm['slug']) ?></p>
-                                </div>
-                            </div>
-                            <?php endwhile; ?>
                         </div>
                     </div>
                 </div>

@@ -95,6 +95,13 @@ $jabatans = [
     ['nama_jabatan' => 'Senior Staff', 'tunjangan' => 800000],
     ['nama_jabatan' => 'Staff', 'tunjangan' => 500000],
     ['nama_jabatan' => 'Admin', 'tunjangan' => 300000],
+    // Jabatan Level Atas
+    ['nama_jabatan' => 'Komisaris Utama', 'tunjangan' => 10000000],
+    ['nama_jabatan' => 'Direktur Utama', 'tunjangan' => 8000000],
+    ['nama_jabatan' => 'Direktur Keuangan', 'tunjangan' => 7000000],
+    ['nama_jabatan' => 'Direktur HR', 'tunjangan' => 7000000],
+    // Jabatan Level Bawah
+    ['nama_jabatan' => 'Office Boy', 'tunjangan' => 150000],
 ];
 foreach ($jabatans as $j) {
     $stmt = $conn->prepare("INSERT INTO hr_jabatan (nama_jabatan, tunjangan) VALUES (?, ?)");
@@ -468,36 +475,90 @@ $jadwal_ids = $conn->query("SELECT id FROM hr_jadwal_kerja")->fetch_all(MYSQLI_A
 $jabatan_ids = $conn->query("SELECT id FROM hr_jabatan")->fetch_all(MYSQLI_ASSOC);
 $golongan_ids = $conn->query("SELECT id FROM hr_golongan_gaji")->fetch_all(MYSQLI_ASSOC);
 
-$karyawans = [
-    ['nip' => 'EMP2023001', 'nama' => 'Budi Santoso'],
-    ['nip' => 'EMP2023002', 'nama' => 'Siti Aminah'],
-    ['nip' => 'EMP2023003', 'nama' => 'Rudi Hartono'],
-    ['nip' => 'EMP2023004', 'nama' => 'Dewi Sartika'],
-    ['nip' => 'EMP2023005', 'nama' => 'Andi Wijaya'],
-    ['nip' => 'EMP2023006', 'nama' => 'Rina Marlina'],
+// Helper untuk mendapatkan ID dari nama
+function getIdByName($array, $key, $value) {
+    foreach ($array as $item) {
+        if ($item[$key] == $value) return $item['id'];
+    }
+    return null;
+}
+
+$jabatan_map = $conn->query("SELECT id, nama_jabatan FROM hr_jabatan")->fetch_all(MYSQLI_ASSOC);
+$divisi_map = $conn->query("SELECT id, nama_divisi FROM hr_divisi")->fetch_all(MYSQLI_ASSOC);
+
+// Struktur Organisasi
+$structure = [
+    ['nip' => 'KOM001', 'nama' => 'Haryono Subianto', 'jabatan' => 'Komisaris Utama', 'divisi' => null, 'atasan_nip' => null],
+    ['nip' => 'DIR001', 'nama' => 'Ahmad Zulkifli', 'jabatan' => 'Direktur Utama', 'divisi' => null, 'atasan_nip' => 'KOM001'],
+    ['nip' => 'DIR002', 'nama' => 'Kartika Sari', 'jabatan' => 'Direktur Keuangan', 'divisi' => 'Finance & Accounting', 'atasan_nip' => 'DIR001'],
+    ['nip' => 'DIR003', 'nama' => 'Bambang Wijoyo', 'jabatan' => 'Direktur HR', 'divisi' => 'Human Resources', 'atasan_nip' => 'DIR001'],
+    
+    ['nip' => 'MGR001', 'nama' => 'Rina Marlina', 'jabatan' => 'Manager', 'divisi' => 'IT Development', 'atasan_nip' => 'DIR001'],
+    ['nip' => 'MGR002', 'nama' => 'Andi Wijaya', 'jabatan' => 'Manager', 'divisi' => 'Marketing', 'atasan_nip' => 'DIR001'],
+
+    ['nip' => 'SPV001', 'nama' => 'Siti Aminah', 'jabatan' => 'Supervisor', 'divisi' => 'Finance & Accounting', 'atasan_nip' => 'DIR002'],
+    ['nip' => 'SPV002', 'nama' => 'Rudi Hartono', 'jabatan' => 'Supervisor', 'divisi' => 'Human Resources', 'atasan_nip' => 'DIR003'],
+
+    ['nip' => 'STF001', 'nama' => 'Budi Santoso', 'jabatan' => 'Senior Staff', 'divisi' => 'IT Development', 'atasan_nip' => 'MGR001'],
+    ['nip' => 'STF002', 'nama' => 'Dewi Sartika', 'jabatan' => 'Staff', 'divisi' => 'IT Development', 'atasan_nip' => 'MGR001'],
+    ['nip' => 'STF003', 'nama' => 'Eko Prasetyo', 'jabatan' => 'Staff', 'divisi' => 'Marketing', 'atasan_nip' => 'MGR002'],
+    ['nip' => 'STF004', 'nama' => 'Fitriani', 'jabatan' => 'Staff', 'divisi' => 'Finance & Accounting', 'atasan_nip' => 'SPV001'],
+    ['nip' => 'STF005', 'nama' => 'Gunawan', 'jabatan' => 'Staff', 'divisi' => 'Human Resources', 'atasan_nip' => 'SPV002'],
+
+    ['nip' => 'ADM001', 'nama' => 'Hilda', 'jabatan' => 'Admin', 'divisi' => 'Operasional', 'atasan_nip' => 'MGR002'],
+    ['nip' => 'OB001', 'nama' => 'Iwan', 'jabatan' => 'Office Boy', 'divisi' => 'Operasional', 'atasan_nip' => 'MGR002'],
 ];
 
-foreach ($karyawans as $i => $k) {
-    $jabatan_id = $jabatan_ids[$i % count($jabatan_ids)]['id'];
-    $jadwal_id = $jadwal_ids[$i % count($jadwal_ids)]['id'];
-    $divisi_id = $divisi_ids[$i % count($divisi_ids)]['id'];
+$employee_ids = []; // Untuk menyimpan relasi nip => id
+
+foreach ($structure as $i => $k) {
+    $jabatan_id = getIdByName($jabatan_map, 'nama_jabatan', $k['jabatan']);
+    $divisi_id = $k['divisi'] ? getIdByName($divisi_map, 'nama_divisi', $k['divisi']) : null;
+    
+    // Atasan ID diambil dari array $employee_ids yang sudah di-insert sebelumnya
+    $atasan_id = isset($k['atasan_nip']) && isset($employee_ids[$k['atasan_nip']]) ? $employee_ids[$k['atasan_nip']] : null;
+
+    // Data dummy lainnya
+    $jadwal_id = $jadwal_ids[0]['id']; // Semua pakai jadwal normal
     $kantor_id = $kantor_ids[$i % count($kantor_ids)]['id'];
     $golongan_id = $golongan_ids[$i % count($golongan_ids)]['id'];
-    $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 3) . " years"));    
-    // Set tanggal kontrak spesifik untuk memicu alert
-    if ($i == 1) { // Siti Aminah
-        $tgl_kontrak = date('Y-m-d', strtotime("+15 days")); // Akan berakhir
-    } elseif ($i == 2) { // Rudi Hartono
-        $tgl_kontrak = date('Y-m-d', strtotime("-5 days")); // Sudah berakhir
-    } else {
-        $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(2, 12) . " months"));
-    }
+    $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 5) . " years"));
+    $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(3, 24) . " months"));
 
-    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
-    $stmt->bind_param("ssiiiiiss", $k['nip'], $k['nama'], $jabatan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
-    $stmt->execute();
+    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, atasan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
+    $stmt->bind_param("ssiiiiisss", $k['nip'], $k['nama'], $jabatan_id, $atasan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
+    
+    if ($stmt->execute()) {
+        $employee_ids[$k['nip']] = $conn->insert_id;
+        // Insert initial job history
+        if ($jabatan_id) {
+            $stmt_hist = $conn->prepare("INSERT INTO hr_riwayat_jabatan (karyawan_id, jabatan_id, tanggal_mulai) VALUES (?, ?, ?)");
+            $stmt_hist->bind_param("iis", $employee_ids[$k['nip']], $jabatan_id, $tgl_masuk);
+            $stmt_hist->execute();
+        }
+
+        // Tambahkan Dummy Riwayat Jabatan & Gaji untuk beberapa karyawan (Budi & Siti)
+        if ($k['nip'] === 'STF001') { // Budi Santoso
+            // Riwayat Jabatan Lama (Staff -> Senior Staff)
+            $tgl_promosi = date('Y-m-d', strtotime("-6 months"));
+            $jabatan_lama_id = getIdByName($jabatan_map, 'nama_jabatan', 'Staff');
+            $conn->query("INSERT INTO hr_riwayat_jabatan (karyawan_id, jabatan_id, tanggal_mulai, tanggal_selesai) VALUES ({$employee_ids[$k['nip']]}, $jabatan_lama_id, '".date('Y-m-d', strtotime("-2 years"))."', '$tgl_promosi')");
+            
+            // Riwayat Gaji
+            $conn->query("INSERT INTO hr_riwayat_gaji (karyawan_id, tanggal_perubahan, gaji_lama, gaji_baru, keterangan) VALUES ({$employee_ids[$k['nip']]}, '$tgl_promosi', 4500000, 6000000, 'Promosi Jabatan')");
+            $conn->query("INSERT INTO hr_riwayat_gaji (karyawan_id, tanggal_perubahan, gaji_lama, gaji_baru, keterangan) VALUES ({$employee_ids[$k['nip']]}, '".date('Y-m-d', strtotime("-1 year"))."', 4000000, 4500000, 'Kenaikan Berkala')");
+        }
+        elseif ($k['nip'] === 'SPV001') { // Siti Aminah
+            // Riwayat Gaji
+            $conn->query("INSERT INTO hr_riwayat_gaji (karyawan_id, tanggal_perubahan, gaji_lama, gaji_baru, keterangan) VALUES ({$employee_ids[$k['nip']]}, '".date('Y-m-d', strtotime("-3 months"))."', 7500000, 8000000, 'Penyesuaian Kinerja')");
+        }
+
+
+    } else {
+        echo "Gagal insert {$k['nama']}: " . $stmt->error . "<br>";
+    }
 }
-log_step("Data Karyawan berhasil dibuat (" . count($karyawans) . " orang).");
+log_step("Data Karyawan berjenjang berhasil dibuat (" . count($structure) . " orang).");
 
 // Update struktur tabel untuk mendukung status probation dan kontrak
 $conn->query("ALTER TABLE `hr_karyawan` MODIFY COLUMN `status` ENUM('aktif','nonaktif','probation','kontrak') DEFAULT 'aktif'");
@@ -505,7 +566,7 @@ $conn->query("ALTER TABLE `hr_karyawan` MODIFY COLUMN `status` ENUM('aktif','non
 // Tambahkan Karyawan Probation (Masa Percobaan Hampir Habis)
 $tgl_masuk_probation = date('Y-m-d', strtotime("-80 days")); // Masuk 80 hari lalu, probation 90 hari (sisa 10 hari)
 $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'probation')");
-$nip_prob = 'PROB001'; $nama_prob = 'Dina Probation';
+$nip_prob = 'PROB001'; $nama_prob = 'Joko Probation';
 $stmt->bind_param("ssiiiis", $nip_prob, $nama_prob, $jabatan_ids[4]['id'], $divisi_ids[0]['id'], $kantor_ids[0]['id'], $golongan_ids[3]['id'], $tgl_masuk_probation);
 $stmt->execute(); 
 log_step("Data Karyawan Probation berhasil dibuat.");
@@ -517,7 +578,7 @@ $conn->query("INSERT INTO hr_evaluasi_probation (karyawan_id, tanggal_evaluasi, 
 log_step("Data Dummy Evaluasi Probation berhasil dibuat.");
 
 // Buat user untuk Budi Santoso dan link ke data karyawan
-$budi_nip = 'EMP2023001';
+$budi_nip = 'STF001';
 $budi_karyawan_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = '$budi_nip'")->fetch_assoc()['id'];
 $budi_username = 'budi';
 $budi_password = password_hash('password', PASSWORD_DEFAULT);
@@ -538,19 +599,19 @@ foreach ($karyawan_list_for_jatah as $k_jatah) {
 log_step("Data Jatah Cuti awal tahun berhasil dibuat untuk semua karyawan.");
 
 // 11.b Dummy Dokumen Karyawan
-$budi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023001'")->fetch_assoc()['id'];
-$siti_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023002'")->fetch_assoc()['id'];
+$budi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'STF001'")->fetch_assoc()['id'];
+$siti_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'SPV001'")->fetch_assoc()['id'];
 $conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file) VALUES ($budi_id, 'KTP', 'ktp_budi.pdf', 'dummy/path')");
 $conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file, tanggal_kadaluarsa) VALUES ($budi_id, 'Kontrak Kerja', 'kontrak_budi_2023.pdf', 'dummy/path', '$tgl_kontrak')");
 $conn->query("INSERT INTO hr_dokumen_karyawan (karyawan_id, jenis_dokumen, nama_file, path_file) VALUES ($siti_id, 'Ijazah', 'ijazah_s1_siti.pdf', 'dummy/path')");
 log_step("Data Dummy Dokumen Karyawan berhasil dibuat.");
 
 // 11.c Dummy Offboarding
-$rudi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023003'")->fetch_assoc()['id'];
+$rudi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'SPV002'")->fetch_assoc()['id'];
 $conn->query("INSERT INTO hr_offboarding (karyawan_id, tipe, tanggal_pengajuan, tanggal_efektif, alasan, status) VALUES ($rudi_id, 'resign', '".date('Y-m-d', strtotime('-15 days'))."', '".date('Y-m-d', strtotime('+15 days'))."', 'Mendapat tawaran di perusahaan lain.', 'proses')");
 
 // Tambahan Data Dummy Offboarding (Selesai)
-$andi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'EMP2023005'")->fetch_assoc()['id'];
+$andi_id = $conn->query("SELECT id FROM hr_karyawan WHERE nip = 'MGR002'")->fetch_assoc()['id'];
 $conn->query("INSERT INTO hr_offboarding (karyawan_id, tipe, tanggal_pengajuan, tanggal_efektif, alasan, status) VALUES ($andi_id, 'terminate', '".date('Y-m-d', strtotime('-45 days'))."', '".date('Y-m-d', strtotime('-15 days'))."', 'Pelanggaran kontrak berat.', 'selesai')");
 log_step("Data Dummy Offboarding berhasil dibuat.");
 

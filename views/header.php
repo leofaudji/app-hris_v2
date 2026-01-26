@@ -20,6 +20,7 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= get_csrf_token() ?>">
     <title><?= $app_name ?></title>    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,6 +34,8 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <?php $v=date("Ymd"); ?>
     <link rel="stylesheet" href="<?= base_url('assets/css/style.css?v='.$v) ?>">
+    <!-- Main JS (Global Helpers) -->
+    <script src="<?= base_url('assets/js/main.js?v='.$v) ?>"></script>
     <!-- Favicon  -->
     <link rel="icon" href="assets/favicon.png" />
     <script>
@@ -82,7 +85,7 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
 <div id="app-container" class="flex h-screen overflow-hidden">
     <?php if ($layout_mode === 'sidebar'): ?>
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out flex flex-col">
+    <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-[1040] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full lg:translate-x-0 lg:relative lg:inset-0 transition-transform duration-300 ease-in-out flex flex-col">
         <!-- Sidebar Header -->
         <div class="flex items-center justify-center h-16 border-b border-gray-200 dark:border-gray-700 px-4 flex-shrink-0">
             <a href="<?= base_url('/dashboard') ?>" class="flex items-center gap-2 text-xl font-bold text-gray-800 dark:text-white truncate">
@@ -109,10 +112,13 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
         <nav id="sidebar-nav" class="flex-1 overflow-y-auto sidebar-scroll p-2">
             <?php require_once __DIR__ . '/_menu_items.php'; ?>
         </nav>
+
+        <!-- Resizer Handle -->
+        <div id="sidebar-resizer" class="hidden lg:block absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary transition-colors z-50 bg-transparent" title="Tarik untuk mengubah lebar"></div>
     </aside>
 
-    <!-- Mobile Overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    <!-- Mobile Overlay --> 
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-[1030] hidden lg:hidden" onclick="toggleSidebar()"></div>
     <?php endif; ?>
 
     <!-- Content Area Wrapper -->
@@ -132,6 +138,12 @@ $layout_mode = $_COOKIE['layout_mode'] ?? 'sidebar'; // 'sidebar' or 'icon_menu'
 
     <!-- Main Content Wrapper -->
     <div class="flex-1 flex flex-col min-w-0 overflow-y-auto content-wrapper">
+        <!-- Maintenance Mode Banner for Admin -->
+        <?php if (($app_settings['maintenance_mode'] ?? '0') === '1' && ($_SESSION['role'] ?? '') === 'admin'): ?>
+        <div class="bg-yellow-500 text-white text-center px-4 py-2 text-sm font-bold shadow-md relative z-[60]">
+            <i class="bi bi-cone-striped mr-2"></i> MODE MAINTENANCE AKTIF - User biasa tidak dapat mengakses sistem.
+        </div>
+        <?php endif; ?>
         <!-- Top Navbar -->
         <header class="sticky top-0 shadow-sm border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-4 lg:px-6 flex-shrink-0 z-50">
             <!-- Background Blur Layer (Separated to fix fixed-positioning context for children) -->

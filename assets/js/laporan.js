@@ -1,3 +1,14 @@
+// Helper function untuk toggle baris neraca (Global scope agar bisa dipanggil dari onclick string)
+window.toggleNeracaRow = function(collapseId, iconId) {
+    const row = document.getElementById(collapseId);
+    const icon = document.getElementById(iconId);
+    if (row && icon) {
+        row.classList.toggle('hidden');
+        // Rotasi icon
+        icon.classList.toggle('-rotate-90');
+    }
+};
+
 function initLaporanPage() {
     const neracaTanggalInput = document.getElementById('neraca-tanggal');
     const neracaContent = document.getElementById('neraca-content');
@@ -26,6 +37,11 @@ function initLaporanPage() {
 
     const tooltipEl = document.getElementById('custom-tooltip');
     const tooltipContentEl = document.getElementById('custom-tooltip-content');
+
+    // Chart Instances
+    let neracaChartInstance = null;
+    let lrChartInstance = null;
+    let akChartInstance = null;
 
 
     const storageKey = 'laporan_filters';
@@ -81,19 +97,18 @@ function initLaporanPage() {
 
     function renderNeraca(data) {
         neracaContent.innerHTML = '';
+        if (neracaChartInstance) { neracaChartInstance.destroy(); neracaChartInstance = null; }
 
+        // Fungsi render baris dengan kemampuan collapsible (Tree Grid)
         const renderRows = (items, level = 0) => {
             let html = '';
             items.forEach(item => {
-                const isParent = item.children && item.children.length > 0; // This logic might be flawed if buildHierarchy isn't used
-                const padding = level * 20;
-                const fw = isParent ? 'font-bold' : '';
+                const isParent = item.children && item.children.length > 0;
                 
                 // Saldo yang akan ditampilkan. Untuk akun induk, ini adalah jumlah dari saldo anak-anaknya.
                 // Untuk akun anak (tanpa turunan), ini adalah saldo akhirnya sendiri.
                 let saldoToShow;
                 if (isParent) {
-                    // Fungsi rekursif untuk menjumlahkan semua saldo akhir dari daun (leaf nodes)
                     const sumLeafNodes = (node) => {
                         if (!node.children || node.children.length === 0) return parseFloat(node.saldo_akhir);
                         return node.children.reduce((acc, child) => acc + sumLeafNodes(child), 0);
@@ -103,14 +118,45 @@ function initLaporanPage() {
                     saldoToShow = parseFloat(item.saldo_akhir);
                 }
 
+                const collapseId = `neraca-collapse-${item.id}`;
+                const iconId = `neraca-icon-${item.id}`;
+                const paddingLeft = level * 1.5; // Indentasi menggunakan rem
+
                 html += `
-                    <tr class="text-sm">
-                        <td style="padding-left: ${padding + 16}px;" class="py-2 ${fw} text-gray-800 dark:text-gray-200">${item.nama_akun}</td>
-                        <td class="text-right py-2 pr-4 ${fw} text-gray-800 dark:text-gray-200">${formatCurrencyAccounting(saldoToShow)}</td>
+                    <tr class="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+                        <td class="py-2 pr-4 pl-2">
+                            <div style="padding-left: ${paddingLeft}rem" class="flex items-center">
+                                ${isParent ? 
+                                    `<button onclick="toggleNeracaRow('${collapseId}', '${iconId}')" class="mr-2 text-gray-400 hover:text-primary focus:outline-none transition-transform duration-200" id="${iconId}">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>` : 
+                                    `<span class="w-6 inline-block"></span>` // Spacer agar sejajar
+                                }
+                                <span class="${isParent ? 'font-semibold text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-400'}">
+                                    ${item.nama_akun}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="text-right py-2 pr-4 font-medium ${isParent ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}">
+                            ${formatCurrencyAccounting(saldoToShow)}
+                        </td>
                     </tr>
                 `;
                 if (isParent && item.children) {
-                    html += renderRows(item.children, level + 1);
+                    // Baris anak (hidden by default jika ingin collapsed, tapi di sini kita default expanded)
+                    html += `
+                        <tr id="${collapseId}" class="transition-all duration-300 ease-in-out">
+                            <td colspan="2" class="p-0 border-0">
+                                <div class="overflow-hidden">
+                                    <table class="w-full">
+                                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                            ${renderRows(item.children, level + 1)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                 }
             });
             return html;
@@ -148,32 +194,103 @@ function initLaporanPage() {
             balanceBadge.innerHTML = `<span class="px-2 py-1 text-xs font-semibold rounded-full ${isBalanced ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${balanceStatusText}</span>`;
         }
 
-        const neracaHtml = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                    <h5 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Aset</h5>
-                    <table class="w-full"><tbody class="divide-y divide-gray-200 dark:divide-gray-700">${renderRows(aset)}</tbody></table>
+        // --- Modern Layout Components ---
+        const summaryCardsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Total Aset</p>
+                        <h3 class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">${currencyFormatter.format(totalAset)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-wallet2 text-6xl text-blue-600"></i>
+                    </div>
                 </div>
-                <div>
-                    <h5 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Liabilitas</h5>
-                    <table class="w-full"><tbody class="divide-y divide-gray-200 dark:divide-gray-700">${renderRows(liabilitas)}</tbody></table>
-                    <table class="w-full mt-2"><tbody><tr class="bg-gray-100 dark:bg-gray-700"><td class="font-bold p-2 text-sm">TOTAL LIABILITAS</td><td class="text-right font-bold p-2 text-sm">${formatCurrencyAccounting(totalLiabilitas)}</td></tr></tbody></table>
-
-                    <h5 class="mt-6 text-lg font-semibold mb-2 text-gray-800 dark:text-white">Ekuitas</h5>
-                    <table class="w-full"><tbody class="divide-y divide-gray-200 dark:divide-gray-700">${renderRows(ekuitas)}</tbody></table>
-                    <table class="w-full mt-2"><tbody><tr class="bg-gray-100 dark:bg-gray-700"><td class="font-bold p-2 text-sm">TOTAL EKUITAS</td><td class="text-right font-bold p-2 text-sm">${formatCurrencyAccounting(totalEkuitas)}</td></tr></tbody></table>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Total Liabilitas</p>
+                        <h3 class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">${currencyFormatter.format(totalLiabilitas)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-graph-down-arrow text-6xl text-red-600"></i>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Total Ekuitas</p>
+                        <h3 class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">${currencyFormatter.format(totalEkuitas)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-pie-chart text-6xl text-green-600"></i>
+                    </div>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+        `;
+
+        const neracaHtml = `
+            ${summaryCardsHtml}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-100 dark:border-gray-600 font-bold text-gray-800 dark:text-white flex items-center"><i class="bi bi-wallet2 mr-2 text-blue-500"></i> Aset</div>
+                    <table class="w-full"><tbody>${renderRows(aset)}</tbody></table>
+                </div>
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-100 dark:border-gray-600 font-bold text-gray-800 dark:text-white flex items-center"><i class="bi bi-file-earmark-text mr-2 text-red-500"></i> Liabilitas</div>
+                        <table class="w-full"><tbody>${renderRows(liabilitas)}</tbody></table>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-t border-gray-100 dark:border-gray-600 flex justify-between font-bold text-sm"><span>TOTAL LIABILITAS</span><span>${formatCurrencyAccounting(totalLiabilitas)}</span></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-100 dark:border-gray-600 font-bold text-gray-800 dark:text-white flex items-center"><i class="bi bi-pie-chart mr-2 text-green-500"></i> Ekuitas</div>
+                        <table class="w-full"><tbody>${renderRows(ekuitas)}</tbody></table>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-t border-gray-100 dark:border-gray-600 flex justify-between font-bold text-sm"><span>TOTAL EKUITAS</span><span>${formatCurrencyAccounting(totalEkuitas)}</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
                 <div>
-                    <table class="w-full"><tbody><tr class="${balanceStatusClass}"><td class="font-bold p-3 text-gray-800 dark:text-gray-100">TOTAL ASET</td><td class="text-right font-bold p-3 text-gray-800 dark:text-gray-100">${formatCurrencyAccounting(totalAset)}</td></tr></tbody></table>
+                    <div class="${balanceStatusClass} rounded-lg p-4 flex justify-between items-center shadow-sm border border-gray-200 dark:border-gray-600">
+                        <span class="font-bold text-gray-800 dark:text-gray-100">TOTAL ASET</span>
+                        <span class="font-bold text-lg text-gray-800 dark:text-gray-100">${formatCurrencyAccounting(totalAset)}</span>
+                    </div>
                 </div>
                 <div>
-                    <table class="w-full"><tbody><tr class="${balanceStatusClass}"><td class="font-bold p-3 text-gray-800 dark:text-gray-100">TOTAL LIABILITAS + EKUITAS</td><td class="text-right font-bold p-3 text-gray-800 dark:text-gray-100">${formatCurrencyAccounting(totalLiabilitasEkuitas)}</td></tr></tbody></table>
+                    <div class="${balanceStatusClass} rounded-lg p-4 flex justify-between items-center shadow-sm border border-gray-200 dark:border-gray-600">
+                        <span class="font-bold text-gray-800 dark:text-gray-100">TOTAL LIABILITAS + EKUITAS</span>
+                        <span class="font-bold text-lg text-gray-800 dark:text-gray-100">${formatCurrencyAccounting(totalLiabilitasEkuitas)}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart Section -->
+            <div class="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-4 text-center">Komposisi Neraca</h5>
+                <div class="h-72 w-full">
+                    <canvas id="neraca-chart"></canvas>
                 </div>
             </div>
         `;
         neracaContent.innerHTML = neracaHtml;
+
+        // Init Chart
+        const ctx = document.getElementById('neraca-chart').getContext('2d');
+        neracaChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Aset', 'Liabilitas', 'Ekuitas'],
+                datasets: [{
+                    data: [totalAset, totalLiabilitas, totalEkuitas],
+                    backgroundColor: ['#3B82F6', '#EF4444', '#10B981'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
     }
 
     async function loadNeraca() {
@@ -197,6 +314,7 @@ function initLaporanPage() {
 
     function renderLabaRugi(data) {
         labaRugiContent.innerHTML = '';
+        if (lrChartInstance) { lrChartInstance.destroy(); lrChartInstance = null; }
         const { current, previous } = data;
         const isComparison = !!previous; // Cek apakah ada data pembanding
         const isCommonSize = current.pendapatan.length > 0 && current.pendapatan[0].hasOwnProperty('percentage'); // Cek apakah ada data persentase
@@ -236,7 +354,7 @@ function initLaporanPage() {
                 const startDate = labaRugiTglMulai.value.split('-').reverse().join('-');
                 const endDate = labaRugiTglAkhir.value.split('-').reverse().join('-');
                 const drillDownUrl = `${basePath}/buku-besar?account_id=${acc.id}&start_date=${startDate}&end_date=${endDate}`;
-                html += `<tr class="text-sm"><td class="px-4 py-2">${acc.nama_akun}</td><td class="text-right px-4 py-2"><a href="${drillDownUrl}" class="drill-down-link" title="Lihat Detail Transaksi">${formatCurrencyAccounting(currentData.total)}</a></td>`;
+                html += `<tr class="text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"><td class="px-4 py-2 text-gray-700 dark:text-gray-300 pl-8">${acc.nama_akun}</td><td class="text-right px-4 py-2 font-medium text-gray-900 dark:text-white"><a href="${drillDownUrl}" class="drill-down-link hover:text-primary" title="Lihat Detail Transaksi">${formatCurrencyAccounting(currentData.total)}</a></td>`;
                 if (isCommonSize) {
                     html += `<td class="text-right px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">${currentData.percentage.toFixed(2)}%</td>`;
                 }
@@ -253,7 +371,42 @@ function initLaporanPage() {
 
         const headerColSpan = 2 + (isComparison ? 2 : 0) + (isCommonSize ? (isComparison ? 2 : 1) : 0);
 
+        // --- Modern Layout Components ---
+        const summaryCardsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Total Pendapatan</p>
+                        <h3 class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">${currencyFormatter.format(current.summary.total_pendapatan)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-graph-up-arrow text-6xl text-green-600"></i>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Total Beban</p>
+                        <h3 class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">${currencyFormatter.format(current.summary.total_beban)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-graph-down-arrow text-6xl text-red-600"></i>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+                    <div class="relative z-10">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Laba Bersih</p>
+                        <h3 class="text-2xl font-bold ${current.summary.laba_bersih >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mt-1">${currencyFormatter.format(current.summary.laba_bersih)}</h3>
+                    </div>
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i class="bi bi-cash-stack text-6xl text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+        `;
+
         const labaRugiHtml = `
+            ${summaryCardsHtml}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-8">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -266,22 +419,22 @@ function initLaporanPage() {
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    <tr class="bg-gray-100 dark:bg-gray-700"><td colspan="${headerColSpan}" class="px-4 py-2 font-bold text-sm">Pendapatan</td></tr>
+                    <tr class="bg-gray-50 dark:bg-gray-700/50"><td colspan="${headerColSpan}" class="px-4 py-2 font-bold text-sm text-gray-800 dark:text-white uppercase tracking-wide">Pendapatan</td></tr>
                     ${renderRows('Pendapatan')}
-                    <tr class="bg-gray-100 dark:bg-gray-700 text-sm">
-                        <td class="font-bold px-4 py-2">TOTAL PENDAPATAN</td>
-                        <td class="text-right font-bold px-4 py-2">${formatCurrencyAccounting(current.summary.total_pendapatan)}</td>
+                    <tr class="bg-green-50 dark:bg-green-900/20 text-sm border-t border-gray-200 dark:border-gray-600">
+                        <td class="font-bold px-4 py-3 text-gray-900 dark:text-white">TOTAL PENDAPATAN</td>
+                        <td class="text-right font-bold px-4 py-3 text-gray-900 dark:text-white">${formatCurrencyAccounting(current.summary.total_pendapatan)}</td>
                         ${isCommonSize ? '<td class="text-right font-bold px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">100.00%</td>' : ''}
                         ${isComparison ? `<td class="text-right font-bold px-4 py-2">${formatCurrencyAccounting(previous.summary.total_pendapatan)}</td>` : ''}
                         ${isComparison && isCommonSize ? '<td class="text-right font-bold px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">100.00%</td>' : ''}
                         ${isComparison ? `<td class="text-right text-xs px-4 py-2">${calculateChange(current.summary.total_pendapatan, previous.summary.total_pendapatan)}</td>` : ''}
                     </tr>
                     
-                    <tr class="bg-gray-100 dark:bg-gray-700"><td colspan="${headerColSpan}" class="px-4 py-2 font-bold text-sm pt-4">Beban</td></tr>
+                    <tr class="bg-gray-50 dark:bg-gray-700/50"><td colspan="${headerColSpan}" class="px-4 py-2 font-bold text-sm text-gray-800 dark:text-white uppercase tracking-wide pt-4">Beban</td></tr>
                     ${renderRows('Beban')}
-                    <tr class="bg-gray-100 dark:bg-gray-700 text-sm">
-                        <td class="font-bold px-4 py-2">TOTAL BEBAN</td>
-                        <td class="text-right font-bold px-4 py-2">${formatCurrencyAccounting(current.summary.total_beban)}</td>
+                    <tr class="bg-red-50 dark:bg-red-900/20 text-sm border-t border-gray-200 dark:border-gray-600">
+                        <td class="font-bold px-4 py-3 text-gray-900 dark:text-white">TOTAL BEBAN</td>
+                        <td class="text-right font-bold px-4 py-3 text-gray-900 dark:text-white">${formatCurrencyAccounting(current.summary.total_beban)}</td>
                         ${isCommonSize ? `<td class="text-right font-bold px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">${(current.summary.total_beban_percentage || 0).toFixed(2)}%</td>` : ''}
                         ${isComparison ? `<td class="text-right font-bold px-4 py-2">${formatCurrencyAccounting(previous.summary.total_beban)}</td>` : ''}
                         ${isComparison && isCommonSize ? `<td class="text-right font-bold px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">${(previous.summary.total_beban_percentage || 0).toFixed(2)}%</td>` : ''}
@@ -299,8 +452,38 @@ function initLaporanPage() {
                     </tr>
                 </tfoot>
             </table>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-4 text-center">Ringkasan Kinerja</h5>
+                <div class="h-72 w-full">
+                    <canvas id="lr-chart"></canvas>
+                </div>
+            </div>
         `;
         labaRugiContent.innerHTML = labaRugiHtml;
+
+        // Init Chart
+        const ctx = document.getElementById('lr-chart').getContext('2d');
+        lrChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Pendapatan', 'Beban', 'Laba Bersih'],
+                datasets: [{
+                    label: 'Periode Ini',
+                    data: [current.summary.total_pendapatan, current.summary.total_beban, current.summary.laba_bersih],
+                    backgroundColor: ['#10B981', '#EF4444', '#3B82F6'],
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
     }
 
     async function loadLabaRugi() {
@@ -367,6 +550,7 @@ function initLaporanPage() {
 
     function renderArusKas(data) {
         arusKasContent.innerHTML = '';
+        if (akChartInstance) { akChartInstance.destroy(); akChartInstance = null; }
         const { arus_kas_operasi, arus_kas_investasi, arus_kas_pendanaan, kenaikan_penurunan_kas, saldo_kas_awal, saldo_kas_akhir_terhitung } = data;
 
         const renderSection = (title, amount) => `
@@ -387,6 +571,55 @@ function initLaporanPage() {
             content += '</ul>';
             return content;
         };
+
+        // --- Modern Layout Components ---
+        const summaryCardsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Arus Kas Operasi</p>
+                    <h4 class="text-lg font-bold ${arus_kas_operasi.total >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">${currencyFormatter.format(arus_kas_operasi.total)}</h4>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Arus Kas Investasi</p>
+                    <h4 class="text-lg font-bold ${arus_kas_investasi.total >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">${currencyFormatter.format(arus_kas_investasi.total)}</h4>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Arus Kas Pendanaan</p>
+                    <h4 class="text-lg font-bold ${arus_kas_pendanaan.total >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">${currencyFormatter.format(arus_kas_pendanaan.total)}</h4>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 shadow-sm border border-blue-100 dark:border-blue-800">
+                    <p class="text-xs text-blue-600 dark:text-blue-300 font-bold uppercase">Kenaikan Bersih</p>
+                    <h4 class="text-lg font-bold text-blue-700 dark:text-blue-200 mt-1">${currencyFormatter.format(kenaikan_penurunan_kas)}</h4>
+                </div>
+            </div>
+        `;
+
+        const chartHtml = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div class="lg:col-span-2">
+                     <!-- Table Container (Moved here) -->
+                     <div id="ak-table-container"></div>
+                </div>
+                <div class="lg:col-span-1">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 h-full">
+                        <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-4 text-center">Analisis Arus Kas</h5>
+                        <div class="h-64 w-full">
+                            <canvas id="ak-chart"></canvas>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm text-gray-500">Saldo Awal</span>
+                                <span class="font-semibold text-gray-700 dark:text-gray-300">${currencyFormatter.format(saldo_kas_awal)}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500">Saldo Akhir</span>
+                                <span class="font-bold text-primary text-lg">${currencyFormatter.format(saldo_kas_akhir_terhitung)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
 
         const arusKasHtml = `
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -422,7 +655,34 @@ function initLaporanPage() {
                 </tbody>
             </table>
         `;
-        arusKasContent.innerHTML = arusKasHtml;
+        
+        arusKasContent.innerHTML = summaryCardsHtml + chartHtml;
+        document.getElementById('ak-table-container').innerHTML = arusKasHtml;
+
+        // Init Chart
+        const ctx = document.getElementById('ak-chart').getContext('2d');
+        akChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Operasi', 'Investasi', 'Pendanaan'],
+                datasets: [{
+                    label: 'Arus Kas',
+                    data: [arus_kas_operasi.total, arus_kas_investasi.total, arus_kas_pendanaan.total],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(139, 92, 246, 0.7)'
+                    ],
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
     }
 
     async function loadArusKas() {
@@ -458,13 +718,17 @@ function initLaporanPage() {
             });
             tabButtons.forEach(button => {
                 const isActive = button.dataset.target === `#${targetId}`;
-                button.classList.toggle('border-primary', isActive);
-                button.classList.toggle('text-primary', isActive);
-                button.classList.toggle('border-transparent', !isActive);
-                button.classList.toggle('text-gray-500', !isActive);
-                button.classList.toggle('dark:text-gray-400', !isActive);
-                button.classList.toggle('hover:text-gray-700', !isActive);
-                button.classList.toggle('hover:border-gray-300', !isActive);
+                const icon = button.querySelector('i');
+                
+                if (isActive) {
+                    button.classList.add('border-primary', 'text-primary');
+                    button.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                    if(icon) icon.classList.add('text-primary');
+                } else {
+                    button.classList.remove('border-primary', 'text-primary');
+                    button.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                    if(icon) icon.classList.remove('text-primary');
+                }
             });
 
             // Load content for the new active tab
@@ -476,6 +740,17 @@ function initLaporanPage() {
         tabButtons.forEach(button => {
             button.addEventListener('click', () => {
                 switchTab(button.dataset.target.substring(1));
+                
+                // Smooth scroll otomatis ke posisi tab jika user sudah scroll ke bawah
+                const scrollContainer = document.querySelector('.content-wrapper');
+                const stickyWrapper = tabContainer.parentElement; // Wrapper yang memiliki class sticky
+                if (scrollContainer && stickyWrapper) {
+                    const headerHeight = 64; // Tinggi header aplikasi (h-16 = 64px)
+                    const targetScroll = stickyWrapper.offsetTop - headerHeight;
+                    if (scrollContainer.scrollTop > targetScroll) {
+                        scrollContainer.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                    }
+                }
             });
         });
 
@@ -555,6 +830,9 @@ function initLaporanPage() {
         form.action = `${basePath}/api/pdf`;
         form.target = '_blank';
         const params = { report: 'neraca', tanggal: neracaTanggalInput.value.split('-').reverse().join('-') };
+        if (neracaIncludeClosing.checked) {
+            params.include_closing = 'true';
+        }
         for (const key in params) {
             const hiddenField = document.createElement('input');
             hiddenField.type = 'hidden';
@@ -579,6 +857,12 @@ function initLaporanPage() {
             end: labaRugiTglAkhir.value.split('-').reverse().join('-'), 
             compare_mode: lrCompareModeSelect.value 
         };
+        if (lrIncludeClosing.checked) {
+            params.include_closing = 'true';
+        }
+        if (lrCommonSizeSwitch.checked) {
+            params.common_size = 'true';
+        }
         const compareMode = lrCompareModeSelect.value;
         if (compareMode !== 'none') {
             params.compare = 'true';
@@ -614,6 +898,9 @@ function initLaporanPage() {
             start: arusKasTglMulai.value.split('-').reverse().join('-'), 
             end: arusKasTglAkhir.value.split('-').reverse().join('-') 
         };
+        if (akIncludeClosing.checked) {
+            params.include_closing = 'true';
+        }
         for (const key in params) {
             const hiddenField = document.createElement('input');
             hiddenField.type = 'hidden';

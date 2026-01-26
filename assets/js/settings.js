@@ -27,6 +27,27 @@ function initSettingsPage() {
                 generalSettingsContainer.innerHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                         <div class="md:col-span-8 space-y-6">
+                            <!-- Maintenance Mode Toggle -->
+                            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <i class="bi bi-cone-striped text-2xl text-yellow-500 mr-4"></i>
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Mode Maintenance</h3>
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                                Jika diaktifkan, hanya <strong>Admin</strong> yang bisa mengakses sistem. User lain akan diarahkan ke halaman perbaikan.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <label for="maintenance-toggle" class="flex items-center cursor-pointer relative">
+                                            <input type="checkbox" id="maintenance-toggle" class="sr-only peer" ${settings.maintenance_mode === '1' ? 'checked' : ''}>
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label for="app_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nama Aplikasi</label>
                                 <input type="text" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-primary focus:ring-primary sm:text-sm" id="app_name" name="app_name" value="${settings.app_name || ''}">
@@ -108,6 +129,44 @@ function initSettingsPage() {
                     logoInput.addEventListener('change', function() {
                         const file = this.files[0];
                         if (file) logoPreview.src = URL.createObjectURL(file);
+                    });
+                }
+
+                // Event listener untuk Maintenance Mode Toggle
+                const maintenanceToggle = document.getElementById('maintenance-toggle');
+                if (maintenanceToggle) {
+                    maintenanceToggle.addEventListener('change', async function() {
+                        const isActive = this.checked;
+                        const formData = new FormData();
+                        formData.append('status', isActive);
+                        
+                        // Disable sementara agar tidak di-spam klik
+                        this.disabled = true;
+
+                        try {
+                            // Menggunakan fetch interceptor global (otomatis ada CSRF token)
+                            const response = await fetch(`${basePath}/actions/toggle_maintenance`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                showToast(result.message, 'success');
+                                // Reload halaman setelah 1 detik untuk memunculkan/menghilangkan banner di header
+                                setTimeout(() => window.location.reload(), 1000);
+                            } else {
+                                showToast(result.message, 'error');
+                                this.checked = !isActive; // Kembalikan posisi toggle jika gagal
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            showToast('Terjadi kesalahan koneksi.', 'error');
+                            this.checked = !isActive;
+                        } finally {
+                            this.disabled = false;
+                        }
                     });
                 }
             } else {
@@ -600,16 +659,35 @@ function initSettingsPage() {
             tabPanes.forEach(pane => pane.classList.toggle('hidden', pane.id !== targetId));
             tabButtons.forEach(button => {
                 const isActive = button.dataset.target === `#${targetId}`;
-                button.classList.toggle('border-primary', isActive);
-                button.classList.toggle('text-primary', isActive);
-                button.classList.toggle('border-transparent', !isActive);
-                button.classList.toggle('text-gray-500', !isActive);
-                button.classList.toggle('dark:text-gray-400', !isActive);
+                const icon = button.querySelector('i');
+
+                if (isActive) {
+                    button.classList.add('border-primary', 'text-primary');
+                    button.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                    if(icon) icon.classList.add('text-primary');
+                } else {
+                    button.classList.remove('border-primary', 'text-primary');
+                    button.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                    if(icon) icon.classList.remove('text-primary');
+                }
             });
         }
 
         tabButtons.forEach(button => {
-            button.addEventListener('click', () => switchTab(button.dataset.target.substring(1)));
+            button.addEventListener('click', () => {
+                switchTab(button.dataset.target.substring(1));
+                
+                // Smooth scroll otomatis ke posisi tab jika user sudah scroll ke bawah
+                const scrollContainer = document.querySelector('.content-wrapper');
+                const stickyWrapper = tabContainer.parentElement; // Wrapper yang memiliki class sticky
+                if (scrollContainer && stickyWrapper) {
+                    const headerHeight = 64; // Tinggi header aplikasi (h-16 = 64px)
+                    const targetScroll = stickyWrapper.offsetTop - headerHeight;
+                    if (scrollContainer.scrollTop > targetScroll) {
+                        scrollContainer.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                    }
+                }
+            });
         });
 
         switchTab('general-settings'); // Initial active tab

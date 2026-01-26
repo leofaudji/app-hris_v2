@@ -111,11 +111,16 @@ $router->get('/users', 'pages/users.php', ['auth', 'admin']); // Halaman manajem
 $router->get('/roles', 'pages/roles.php', ['auth', 'admin']);
 $router->post('/roles', 'pages/roles.php', ['auth', 'admin']);
 
+// Maintenance
+$router->get('/maintenance', 'pages/maintenance.php', ['auth']);
+$router->post('/actions/toggle_maintenance', 'actions/toggle_maintenance.php', ['auth', 'admin']);
+
 // --- Rute Modul HR & Payroll ---
 $router->get('/hr/dashboard', 'pages/hr/dashboard.php', ['auth']);
 $router->get('/hr/karyawan', 'pages/hr/karyawan.php', ['auth']);
 $router->get('/hr/jabatan', 'pages/hr/jabatan.php', ['auth']);
 $router->get('/hr/divisi', 'pages/hr/divisi.php', ['auth']);
+$router->get('/hr/struktur-organisasi', 'pages/hr/struktur_organisasi.php', ['auth']);
 $router->get('/hr/master-dashboard', 'pages/hr/master_dashboard.php', ['auth']);
 $router->get('/hr/kantor', 'pages/hr/kantor.php', ['auth']);
 $router->get('/hr/golongan-absensi', 'pages/hr/golonganabsensi.php', ['auth']);
@@ -144,6 +149,8 @@ $router->get('/hr/offboarding', 'pages/hr/offboarding.php', ['auth']);
 $router->get('/hr/portal/dashboard', 'pages/hr/portal/dashboard.php', ['auth']);
 $router->get('/hr/portal/profil', 'pages/hr/portal/profil.php', ['auth']);
 $router->get('/hr/portal/absensi', 'pages/hr/portal/absensi.php', ['auth']);
+$router->get('/hr/portal/pengajuan-cuti', 'pages/hr/portal/pengajuan_cuti.php', ['auth']);
+$router->get('/hr/portal/klaim', 'pages/hr/portal/klaim.php', ['auth']);
 $router->get('/hr/portal/slip-gaji', 'pages/hr/portal/slipgaji.php', ['auth']);
 
 // --- Rute API (Untuk proses data via AJAX) ---
@@ -270,6 +277,7 @@ $router->get('/api/hr/portal/dashboard', 'api/hr/portal/dashboard_handler.php', 
 $router->get('/api/hr/portal/profil', 'api/hr/portal/profil_handler.php', ['auth']);
 $router->get('/api/hr/portal/absensi', 'api/hr/portal/absensi_handler.php', ['auth']);
 $router->get('/api/hr/portal/slip-gaji', 'api/hr/portal/slipgaji_handler.php', ['auth']);
+$router->get('/api/hr/portal/klaim', 'api/hr/portal/klaim_handler.php', ['auth']); // Handler khusus portal atau gunakan handler umum dengan filter
 
 
 // Jalankan router

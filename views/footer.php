@@ -99,8 +99,5 @@ if (!isset($app_name)) {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<?php $v=date("Ymd"); ?>
-<!-- Main App Logic -->
-<script src="<?= base_url('assets/js/main.js?v='.$v) ?>"></script>
 </body>
 </html> 

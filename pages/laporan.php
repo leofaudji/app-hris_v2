@@ -12,12 +12,18 @@ check_permission('laporan_keuangan', 'menu');
     <h1 class="text-2xl font-semibold text-gray-800 dark:text-white flex items-center gap-2"><i class="bi bi-bar-chart-line-fill"></i> Laporan Keuangan</h1>
 </div>
 
-<div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-    <div class="-mb-px flex space-x-4" aria-label="Tabs" role="tablist" id="laporanTab">
-        <button type="button" class="laporan-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" id="neraca-tab" data-target="#neraca-pane" role="tab">Neraca</button>
-        <button type="button" class="laporan-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" id="laba-rugi-tab" data-target="#laba-rugi-pane" role="tab">Laba Rugi</button>
-        <button type="button" class="laporan-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" id="arus-kas-tab" data-target="#arus-kas-pane" role="tab">Arus Kas</button>
-    </div>
+<div class="sticky top-16 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-gray-200 dark:border-gray-700 transition-all">
+    <nav class="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs" id="laporanTab">
+        <button type="button" class="laporan-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" id="neraca-tab" data-target="#neraca-pane" role="tab">
+            <i class="bi bi-journal-bookmark-fill mr-2 text-lg"></i> Neraca
+        </button>
+        <button type="button" class="laporan-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" id="laba-rugi-tab" data-target="#laba-rugi-pane" role="tab">
+            <i class="bi bi-graph-up-arrow mr-2 text-lg"></i> Laba Rugi
+        </button>
+        <button type="button" class="laporan-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" id="arus-kas-tab" data-target="#arus-kas-pane" role="tab">
+            <i class="bi bi-cash-stack mr-2 text-lg"></i> Arus Kas
+        </button>
+    </nav>
 </div>
 
 <div id="laporanTabContent">

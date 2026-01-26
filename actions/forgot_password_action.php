@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+verify_csrf_token();
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . base_url('/login'));
     exit;

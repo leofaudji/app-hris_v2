@@ -12,15 +12,27 @@ check_permission('settings', 'menu');
     <h1 class="text-2xl font-semibold text-gray-800 dark:text-white flex items-center gap-2"><i class="bi bi-gear-fill"></i> Pengaturan Aplikasi</h1>
 </div>
 
-<div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-    <div class="-mb-px flex space-x-4" aria-label="Tabs" role="tablist" id="settingsTab">
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#general-settings">Umum</button>
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#transaksi-settings">Transaksi</button>
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#accounting-settings">Akuntansi</button>
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#arus-kas-settings">Arus Kas</button>
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#konsinyasi-settings">Konsinyasi</button>
-        <button type="button" class="settings-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" data-target="#backup-restore-settings">Backup & Restore</button>
-    </div>
+<div class="sticky top-16 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto transition-all">
+    <nav class="-mb-px flex space-x-8 min-w-max" aria-label="Tabs" id="settingsTab">
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#general-settings">
+            <i class="bi bi-sliders mr-2 text-lg"></i> Umum
+        </button>
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#transaksi-settings">
+            <i class="bi bi-arrow-down-up mr-2 text-lg"></i> Transaksi
+        </button>
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#accounting-settings">
+            <i class="bi bi-calculator mr-2 text-lg"></i> Akuntansi
+        </button>
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#arus-kas-settings">
+            <i class="bi bi-cash-coin mr-2 text-lg"></i> Arus Kas
+        </button>
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#konsinyasi-settings">
+            <i class="bi bi-box-seam mr-2 text-lg"></i> Konsinyasi
+        </button>
+        <button type="button" class="settings-tab-btn group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap focus:outline-none" data-target="#backup-restore-settings">
+            <i class="bi bi-database-fill-gear mr-2 text-lg"></i> Backup & Restore
+        </button>
+    </nav>
 </div>
 
 <div id="settingsTabContent">

@@ -133,12 +133,21 @@ if (!$is_spa_request) {
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="jabatan_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"><i class="bi bi-briefcase"></i> Jabatan</label>
-                        <select name="jabatan_id" id="jabatan_id" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
-                            <option value="">Pilih Jabatan</option>
-                            <!-- Opsi jabatan dimuat via JS -->
-                        </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="jabatan_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"><i class="bi bi-briefcase"></i> Jabatan</label>
+                            <select name="jabatan_id" id="jabatan_id" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                                <option value="">Pilih Jabatan</option>
+                                <!-- Opsi jabatan dimuat via JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="atasan_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"><i class="bi bi-person-badge"></i> Atasan Langsung</label>
+                            <select name="atasan_id" id="atasan_id" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
+                                <option value="">Pilih Atasan</option>
+                                <!-- Opsi atasan dimuat via JS -->
+                            </select>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

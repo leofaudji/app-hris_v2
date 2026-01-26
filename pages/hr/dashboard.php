@@ -20,7 +20,7 @@ if (!$is_spa_request) {
     </div>
 
     <!-- Top Stats Row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="hr-dashboard-summary-cards">
         <!-- Top Performer -->
         <div id="widget-top-performer" class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-6 relative overflow-hidden text-white transform hover:scale-[1.02] transition-transform duration-300">
             <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>

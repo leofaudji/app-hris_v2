@@ -401,11 +401,13 @@ function initKonsinyasiPage() {
             tabPanes.forEach(pane => pane.classList.toggle('hidden', pane.id !== targetId));
             tabButtons.forEach(button => {
                 const isActive = button.dataset.target === `#${targetId}`;
-                button.classList.toggle('border-primary', isActive);
-                button.classList.toggle('text-primary', isActive);
-                button.classList.toggle('border-transparent', !isActive);
-                button.classList.toggle('text-gray-500', !isActive);
-                button.classList.toggle('dark:text-gray-400', !isActive);
+                if (isActive) {
+                    button.classList.add('border-primary', 'text-primary');
+                    button.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                } else {
+                    button.classList.remove('border-primary', 'text-primary');
+                    button.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300');
+                }
             });
             // Load content for the new active tab
             if (targetId === 'barang-pane') loadItems();

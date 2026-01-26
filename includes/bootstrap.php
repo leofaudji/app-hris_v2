@@ -2,8 +2,30 @@
 // Mulai atau lanjutkan sesi.
 // Ini harus menjadi baris pertama sebelum output apa pun.
 if (session_status() === PHP_SESSION_NONE) {
+    // Hardening Session Cookie
+    // HttpOnly: Cookie tidak bisa diakses via JavaScript (mencegah pencurian via XSS)
+    // SameSite=Lax: Cookie tidak dikirim jika request berasal dari website lain (mencegah CSRF)
+    if (version_compare(PHP_VERSION, '7.3.0', '>=')) {
+        session_set_cookie_params([
+            'lifetime' => 0, // Session cookie (hilang saat browser tutup)
+            'path' => '/',
+            'domain' => '',
+            'secure' => isset($_SERVER['HTTPS']), // Hanya kirim via HTTPS jika tersedia
+            'httponly' => true,
+            'samesite' => 'Lax' 
+        ]);
+    } else {
+        // Fallback untuk PHP versi lama
+        session_set_cookie_params(0, '/', '', isset($_SERVER['HTTPS']), true);
+    }
     session_start();
 }
+
+// Generate CSRF token if it doesn't exist
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 
 
 require_once __DIR__ . '/functions.php';
@@ -14,6 +36,37 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
 require_once __DIR__ . '/Config.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/RateLimiter.php';
+
+/**
+ * Mengembalikan CSRF token saat ini.
+ * @return string
+ */
+function get_csrf_token() {
+    return $_SESSION['csrf_token'] ?? '';
+}
+
+/**
+ * Memverifikasi CSRF token untuk permintaan yang tidak aman (POST, PUT, DELETE).
+ * Akan menghentikan eksekusi jika token tidak valid.
+ */
+function verify_csrf_token() {
+    // Hanya periksa untuk metode yang mengubah state
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        // Ambil token dari POST body atau dari header (untuk API)
+        $token_from_request = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+
+        if (empty($token_from_request)) {
+            http_response_code(403);
+            die(json_encode(['success' => false, 'message' => 'Permintaan tidak valid. Token CSRF tidak ada.']));
+        }
+
+        // Gunakan hash_equals untuk perbandingan yang aman dari timing attack
+        if (!isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token_from_request)) {
+            http_response_code(403);
+            die(json_encode(['success' => false, 'message' => 'Token CSRF tidak cocok. Silakan muat ulang halaman.']));
+        }
+    }
+}
 
 /**
  * Mencoba untuk login pengguna menggunakan data dari cookie.
@@ -126,9 +179,56 @@ try {
 
 // --- Terapkan Rate Limiting untuk API ---
 // Cek apakah permintaan saat ini adalah permintaan API
-if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
+if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {    
+    // Verifikasi CSRF token untuk semua permintaan API yang mengubah data
+    verify_csrf_token();
+
     // Batasi 60 permintaan per menit per IP
     $rateLimiter = new RateLimiter(60, 60); 
     $clientIp = $_SERVER['REMOTE_ADDR'];
     $rateLimiter->check($clientIp);
+}
+
+// --- Maintenance Mode Check ---
+if (defined('BASE_PATH')) {
+    // Gunakan fungsi get_setting jika tersedia (dari functions.php)
+    // Default '0' (mati) jika setting tidak ditemukan
+    $maintenance_mode = function_exists('get_setting') ? get_setting('maintenance_mode', '0') : '0';
+
+    if ($maintenance_mode === '1') {
+        $request_uri = $_SERVER['REQUEST_URI'];
+        $path_only = parse_url($request_uri, PHP_URL_PATH);
+        
+        // Normalisasi path relatif terhadap BASE_PATH
+        $relative_path = $path_only;
+        if (BASE_PATH !== '' && strpos($path_only, BASE_PATH) === 0) {
+            $relative_path = substr($path_only, strlen(BASE_PATH));
+        }
+        if ($relative_path === '') $relative_path = '/';
+
+        // Daftar path yang diizinkan saat maintenance (Login & Assets tetap harus bisa diakses)
+        $allowed_prefixes = [
+            '/login', 
+            '/logout',
+            '/maintenance',
+            '/assets/',
+            '/api/auth', // Asumsi endpoint login
+        ];
+        
+        $is_allowed = false;
+        foreach ($allowed_prefixes as $prefix) {
+            if (strpos($relative_path, $prefix) === 0) {
+                $is_allowed = true;
+                break;
+            }
+        }
+        
+        // Cek User Role (Admin bypass)
+        $is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+        
+        if (!$is_allowed && !$is_admin) {
+            header('Location: ' . BASE_PATH . '/maintenance');
+            exit;
+        }
+    }
 }

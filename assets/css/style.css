@@ -10,14 +10,14 @@
     --cf-table-striped-bg: #f9f9f9;
     --cf-modal-bg: #ffffff;
     --sidebar-width: 260px;
-    --sidebar-bg: var(--cf-card-bg-color); /* Light background */
+    --sidebar-bg: rgba(255, 255, 255, 0.85); /* Semi-transparent Light */
     --sidebar-link-color: var(--cf-text-muted-color); /* Dark text */
     --sidebar-link-hover-color: var(--cf-text-color); /* Darker text on hover */
     --sidebar-link-active-color: var(--cf-blue);
-    --sidebar-link-active-bg: var(--cf-blue); /* Blue background for active link */
+    --sidebar-link-active-bg: linear-gradient(135deg, var(--cf-blue), #0056b3); /* Gradient Active */
 }
 
-body.dark-mode {
+html.dark {
     /* macOS Dark Mode Palette */
     --cf-blue: #0a84ff; /* Brighter Apple Blue for dark mode */
     --cf-bg-color: #1c1c1e; /* System Background */
@@ -28,7 +28,7 @@ body.dark-mode {
     --cf-input-bg-color: #2a2a2a;
     --cf-table-striped-bg: rgba(255, 255, 255, 0.05);
     --cf-modal-bg: #2a2a2a;
-    --sidebar-bg: #1e1e1e;
+    --sidebar-bg: rgba(30, 30, 30, 0.85); /* Semi-transparent Dark */
     --sidebar-link-color: var(--cf-text-muted-color);
     --sidebar-link-hover-color: var(--cf-text-color);
     --sidebar-link-active-bg: rgba(10, 132, 255, 0.3); /* Semi-transparent blue */
@@ -47,6 +47,19 @@ body {
     transition: all 0.3s;
     overflow-y: hidden; /* Sembunyikan scrollbar secara default */
     border-right: 1px solid var(--cf-border-color);
+    backdrop-filter: blur(12px); /* Efek Kaca (Glassmorphism) */
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Disable transition during resize to prevent lag */
+.sidebar.is-resizing {
+    transition: none !important;
+}
+
+/* Hide resizer when minimized */
+body.sidebar-minimized #sidebar-resizer {
+    display: none;
+    pointer-events: none;
 }
 
 .sidebar:hover {
@@ -77,7 +90,7 @@ body {
     margin-bottom: 1rem;
 }
 
-body.dark-mode .sidebar .navbar-brand {
+html.dark .sidebar .navbar-brand {
     color: #fff; /* Restore white brand text for dark mode */
 }
 
@@ -102,14 +115,16 @@ body.dark-mode .sidebar .navbar-brand {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border-radius: 6px;
+    border-radius: 12px; /* Sudut lebih membulat (Modern Look) */
     margin: 0 0.75rem;
     width: calc(100% - 1.5rem);
+    position: relative; /* Penting untuk Ripple Effect */
 }
 
 .sidebar-nav .nav-link:hover {
     color: var(--sidebar-link-hover-color);
     background-color: var(--cf-table-striped-bg); /* Use a subtle grey for hover on light bg */
+    transform: translateX(4px); /* Efek geser sedikit saat hover */
 }
 
 .sidebar-nav .nav-link.active {
@@ -118,22 +133,22 @@ body.dark-mode .sidebar .navbar-brand {
     font-weight: 600; /* Make the active link's text semi-bold */
 }
 
-body:not(.dark-mode) .sidebar-nav .nav-link.active {
+html:not(.dark) .sidebar-nav .nav-link.active {
     color: var(--cf-blue);
     background-color: rgba(0, 122, 255, 0.1);
 }
 
 /* New, more modern active link style */
 .sidebar a.active {
-    background-color: var(--theme-color, var(--cf-blue));
+    background: linear-gradient(135deg, var(--theme-color, var(--cf-blue)), #0056b3); /* Gradasi Warna */
     color: white !important; /* Use important to override other text colors */
     font-weight: 600;
-    box-shadow: 0 4px 8px -2px rgba(0, 122, 255, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 15px -3px rgba(0, 122, 255, 0.4); /* Shadow berwarna (Glow) */
 }
 .sidebar a.active i {
     color: white !important;
 }
-.dark-mode .sidebar a.active {
+html.dark .sidebar a.active {
     background-color: var(--theme-color, var(--cf-blue));
     box-shadow: 0 4px 10px -2px rgba(10, 132, 255, 0.4);
 }
@@ -141,7 +156,7 @@ body:not(.dark-mode) .sidebar-nav .nav-link.active {
 /* Interactive Hover Effect */
 .sidebar a:not(.active):hover,
 .sidebar button:not(.active-parent):hover {
-    transform: translateX(5px);
+    /* transform handled above */
 }
 
 /* Style for the parent of an active sub-menu item */
@@ -157,6 +172,12 @@ body:not(.dark-mode) .sidebar-nav .nav-link.active {
     margin-right: 0.75rem;
     font-size: 1.1rem;
     vertical-align: text-bottom;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Animasi ikon */
+}
+
+/* Animasi Ikon saat Hover: Membesar sedikit */
+.sidebar-nav .nav-link:hover .bi {
+    transform: scale(1.2);
 }
 
 .sidebar-header {
@@ -260,6 +281,21 @@ body.sidebar-collapsed .content-wrapper {
     flex-direction: column;
     min-height: 100vh;
     background-color: var(--cf-bg-color);
+    position: relative;
+    isolation: isolate; /* Membuat stacking context baru agar z-index bekerja benar */
+}
+
+.content-wrapper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('../doodle.png');
+    background-repeat: repeat;
+    background-size: 400px auto; /* Mengatur ukuran pola agar tidak terlalu besar/kecil */
+    opacity: 0.55; /* Atur tingkat transparansi gambar di sini (0.15 = 15%) */
+    z-index: -1; /* Taruh di belakang konten */
+    pointer-events: none;
+    background-attachment: fixed; /* Membuat background diam saat di-scroll (efek parallax) */
 }
 
 .top-navbar {
@@ -276,7 +312,7 @@ body.sidebar-collapsed .content-wrapper {
     border: none;
 }
 
-body.dark-mode #sidebar-toggle-btn {
+html.dark #sidebar-toggle-btn {
     color: var(--cf-text-color);
 }
 
@@ -354,24 +390,24 @@ body.dark-mode #sidebar-toggle-btn {
 }
 
 /* Dark mode specific overrides */
-body.dark-mode .table {
+html.dark .table {
     --bs-table-color: var(--cf-text-color);
     --bs-table-border-color: var(--cf-border-color);
     --bs-table-striped-bg: var(--cf-table-striped-bg);
     --bs-table-hover-bg: rgba(255, 255, 255, 0.075);
 }
 
-body.dark-mode .modal-content {
+html.dark .modal-content {
     background-color: var(--cf-modal-bg);
     color: var(--cf-text-color);
     border-color: var(--cf-border-color);
 }
 
-body.dark-mode .btn-close {
+html.dark .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
 
-body.dark-mode .dropdown-menu {
+html.dark .dropdown-menu {
     background-color: #2c3034;
     border-color: var(--cf-border-color);
     --bs-dropdown-link-color: #dee2e6;
@@ -379,23 +415,13 @@ body.dark-mode .dropdown-menu {
     --bs-dropdown-link-hover-bg: #343a40;
 }
 
-body.dark-mode .text-muted {
+html.dark .text-muted {
     color: var(--cf-text-muted-color) !important;
 }
-
-/* --- Sidebar Overlay untuk mobile --- */
-.sidebar-overlay {
-    display: none; /* Disembunyikan secara default dan di layar besar */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1030; /* Tepat di bawah sidebar */
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-    cursor: pointer;
+/* Grid Pattern for Dark Mode (Lighter lines) */
+html.dark .content-wrapper::before {
+    opacity: 0.05; /* Kurangi opacity di mode gelap agar tidak terlalu kontras */
+    filter: invert(1); /* Membalik warna gambar (hitam jadi putih) agar terlihat di background gelap */
 }
 
 /* --- Responsive Design --- */
@@ -409,12 +435,6 @@ body.dark-mode .text-muted {
     .sidebar {
         z-index: 1031; /* Higher than top-navbar */
         box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
-    }
-
-    /* Saat sidebar terbuka di layar kecil, tampilkan overlay */
-    body:not(.sidebar-collapsed) .sidebar-overlay {
-        display: block;
-        opacity: 1;
     }
 }
 
@@ -693,4 +713,66 @@ html.dark #spa-spinner-overlay {
 
 .animate-shine {
     animation: shineEffect 1.5s infinite linear;
+}
+
+/* --- Ripple Effect Animation --- */
+.ripple-effect {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    background-color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Dark ripple for light backgrounds (optional adjustment) */
+.btn-light .ripple-effect,
+.bg-white .ripple-effect,
+.sidebar-nav .nav-link:not(.active):hover .ripple-effect {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Highlight effect for SPA navigation with hash */
+@keyframes highlight-fade {
+  from { background-color: rgba(255, 255, 0, 0.5); }
+  to { background-color: transparent; }
+}
+.highlight-item {
+  animation: highlight-fade 3s ease-out;
+  scroll-margin-top: 80px; /* Offset for sticky header */
+}
+
+/* OrgChart Custom Classes to avoid classList errors with multiple Tailwind classes */
+.org-node-custom {
+    background-color: white;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.5rem; /* rounded-lg */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+    padding: 0.5rem; /* p-2 */
+    transition: box-shadow 0.3s;
+    cursor: pointer;
+}
+.org-node-custom:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+}
+html.dark .org-node-custom {
+    background-color: #1f2937; /* gray-800 */
+    border-color: #374151; /* gray-700 */
+}
+
+.org-node-selected-custom {
+    background-color: #eff6ff !important; /* blue-50 */
+    border: 2px solid #60a5fa !important; /* blue-400 */
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important; /* shadow-xl */
+}
+html.dark .org-node-selected-custom {
+    background-color: rgba(30, 58, 138, 0.5) !important; /* blue-900/50 */
 }

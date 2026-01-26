@@ -11,6 +11,7 @@ return [
     ['type' => 'collapse', 'key' => 'hr_kepegawaian', 'label' => 'Kepegawaian', 'icon' => 'bi bi-people', 'children' => [
         ['key' => 'hr_dashboard', 'label' => 'Dashboard HR', 'url' => '/hr/dashboard', 'icon' => 'bi bi-grid-1x2-fill'],
         ['key' => 'hr_karyawan', 'label' => 'Data Karyawan', 'url' => '/hr/karyawan', 'icon' => 'bi bi-people'],
+        ['key' => 'hr_struktur_organisasi', 'label' => 'Struktur Organisasi', 'url' => '/hr/struktur-organisasi', 'icon' => 'bi bi-diagram-3-fill'],
         ['key' => 'hr_absensi', 'label' => 'Absensi', 'url' => '/hr/absensi', 'icon' => 'bi bi-calendar-check'],
         ['key' => 'hr_manajemen_cuti', 'label' => 'Manajemen Cuti', 'url' => '/hr/manajemen-cuti', 'icon' => 'bi bi-calendar-range'],
         ['key' => 'hr_kalender_cuti', 'label' => 'Kalender Cuti', 'url' => '/hr/kalender-cuti', 'icon' => 'bi bi-calendar3'],
@@ -48,6 +49,8 @@ return [
         ['key' => 'portal_dashboard', 'label' => 'Dashboard', 'url' => '/hr/portal/dashboard', 'icon' => 'bi bi-speedometer'],
         ['key' => 'portal_profil', 'label' => 'Profil Saya', 'url' => '/hr/portal/profil', 'icon' => 'bi bi-person-badge'],
         ['key' => 'portal_absensi', 'label' => 'Data Absensi', 'url' => '/hr/portal/absensi', 'icon' => 'bi bi-calendar-check'],
+        ['key' => 'portal_pengajuan_cuti', 'label' => 'Pengajuan Cuti', 'url' => '/hr/portal/pengajuan-cuti', 'icon' => 'bi bi-calendar-plus'],
+        ['key' => 'portal_klaim', 'label' => 'Klaim & Reimbursement', 'url' => '/hr/portal/klaim', 'icon' => 'bi bi-cash-coin'],
         ['key' => 'portal_slip_gaji', 'label' => 'Slip Gaji', 'url' => '/hr/portal/slip-gaji', 'icon' => 'bi bi-receipt'],
     ]],
 

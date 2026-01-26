@@ -278,6 +278,7 @@ function runPageScripts(path) {
         '/roles': { script: 'roles.js', init: 'initRolesPage' },
         '/hr/karyawan': { script: 'hr/karyawan.js', init: 'initKaryawanPage' },
         '/hr/dashboard': { script: 'hr/dashboard.js', init: 'initHrDashboardPage' },
+        '/hr/struktur-organisasi': { script: 'hr/struktur_organisasi.js', init: 'initStrukturOrganisasiPage' },
         '/hr/jabatan': { script: 'hr/jabatan.js', init: 'initJabatanPage' },
         '/hr/divisi': { script: 'hr/divisi.js', init: 'initDivisiPage' },
         '/hr/master-dashboard': { script: 'hr/master_dashboard.js', init: 'initMasterDashboardPage' },
@@ -306,8 +307,12 @@ function runPageScripts(path) {
         '/hr/portal/dashboard': { script: 'hr/portal/dashboard.js', init: 'initPortalDashboardPage' },
         '/hr/portal/profil': { script: 'hr/portal/profil.js', init: 'initPortalProfilPage' },
         '/hr/portal/absensi': { script: 'hr/portal/absensi.js', init: 'initPortalAbsensiPage' },
+        '/hr/portal/pengajuan-cuti': { script: 'hr/portal/pengajuan_cuti.js', init: 'initPortalPengajuanCutiPage' },
+        '/hr/portal/lembur': { script: 'hr/portal/lembur.js', init: 'initPortalLemburPage' },
+        '/hr/portal/klaim': { script: 'hr/portal/klaim.js', init: 'initPortalKlaimPage' },
         '/hr/portal/slip-gaji': { script: 'hr/portal/slipgaji.js', init: 'initPortalSlipGajiPage' },
-        '/buku-panduan': { script: null, init: null } // Halaman statis
+        '/buku-panduan': { script: null, init: null }, // Halaman statis
+        '/maintenance': { script: null, init: null } // Halaman Maintenance
     };
 
     const route = routeMap[cleanPath];
@@ -356,6 +361,21 @@ function loadScript(src) {
     });
 }
 
+/**
+ * Loads Google Charts library dynamically.
+ * @returns {Promise<void>}
+ */
+function loadGoogleCharts() {
+    return new Promise((resolve, reject) => {
+        if (typeof google !== 'undefined' && google.charts) {
+            resolve();
+        } else {
+            loadScript('https://www.gstatic.com/charts/loader.js')
+                .then(resolve)
+                .catch(reject);
+        }
+    });
+}
 
 // =================================================================================
 // PAGE-SPECIFIC INITIALIZATION FUNCTIONS
@@ -792,6 +812,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (startEl) flatpickr(startEl, { dateFormat: "d-m-Y", allowInput: true });
         if (endEl) flatpickr(endEl, { dateFormat: "d-m-Y", allowInput: true });
     }
+
+    // Inisialisasi Session Timeout (Auto Logout)
+    initSessionTimeout();
 });
 
 // --- Global Theme Color Picker Logic ---
@@ -1152,4 +1175,329 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+} 
+
+/**
+ * Initializes session timeout logic.
+ * Logs out the user after 30 minutes of inactivity.
+ */
+function initSessionTimeout() {
+    // 30 menit dalam milidetik
+    const timeoutDuration = 30 * 60 * 1000; 
+    const warningDuration = 60 * 1000; // 1 menit
+
+    let timeout;
+    let warningTimeout;
+    let isWarningShown = false;
+
+    const doLogout = () => {
+        window.location.href = `${basePath}/logout`;
+    };
+
+    const showWarning = () => {
+        isWarningShown = true;
+        if (typeof Swal !== 'undefined') {
+            let timerInterval;
+            Swal.fire({
+                title: 'Sesi Akan Berakhir',
+                html: 'Sesi Anda akan berakhir dalam <b></b> detik.<br>Lakukan aktivitas untuk tetap masuk.',
+                timer: warningDuration,
+                timerProgressBar: true,
+                icon: 'warning',
+                showConfirmButton: true,
+                confirmButtonText: 'Saya Masih Disini',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    const b = Swal.getHtmlContainer().querySelector('b');
+                    timerInterval = setInterval(() => {
+                        if (b) {
+                            b.textContent = Math.ceil(Swal.getTimerLeft() / 1000);
+                        }
+                    }, 100);
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
+                    isWarningShown = false;
+                }
+            }).then((result) => {
+                if (result.dismiss === Swal.DismissReason.timer) {
+                    doLogout();
+                }
+            });
+        }
+    };
+
+    const resetTimer = () => {
+        clearTimeout(timeout);
+        clearTimeout(warningTimeout);
+
+        if (isWarningShown) {
+            if (typeof Swal !== 'undefined') {
+                Swal.close();
+            }
+            isWarningShown = false;
+        }
+
+        warningTimeout = setTimeout(showWarning, timeoutDuration - warningDuration);
+        timeout = setTimeout(doLogout, timeoutDuration);
+    };
+
+    // Throttle untuk mencegah eksekusi berlebihan pada event seperti scroll/mousemove
+    let isThrottled = false;
+    const handleActivity = () => {
+        if (!isThrottled) {
+            resetTimer();
+            isThrottled = true;
+            setTimeout(() => { isThrottled = false; }, 1000);
+        }
+    };
+
+    ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, handleActivity, true);
+    });
+
+    resetTimer();
 }
+
+/**
+ * Mengambil nilai CSRF Token dari meta tag.
+ * @returns {string}
+ */
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+/**
+ * Menambahkan CSRF Token ke dalam objek FormData.
+ * Digunakan sebelum mengirim request POST via fetch/AJAX.
+ * 
+ * @param {FormData} formData
+ */
+function addCsrfToken(formData) {
+    const token = getCsrfToken();
+    if (token) {
+        formData.append('csrf_token', token);
+    } else {
+        console.error('CSRF Token tidak ditemukan pada meta tag.');
+    }
+}
+
+// =================================================================================
+// GLOBAL FETCH INTERCEPTOR FOR CSRF
+// =================================================================================
+// Secara otomatis menyisipkan header X-CSRF-TOKEN ke setiap request fetch (POST/PUT/DELETE)
+// sehingga tidak perlu mengedit setiap file JavaScript secara manual.
+
+(function() {
+    const originalFetch = window.fetch;
+    window.fetch = async function(resource, config = {}) {
+        let method = config.method;
+
+        // Jika resource adalah objek Request, ambil method dari sana jika config.method kosong
+        if (resource instanceof Request && !method) {
+            method = resource.method;
+        }
+
+        method = method ? method.toUpperCase() : 'GET';
+
+        // Hanya tambahkan token untuk request yang mengubah data (bukan GET/HEAD)
+        if (method !== 'GET' && method !== 'HEAD') {
+            const token = getCsrfToken();
+            if (token) {
+                if (!config.headers) {
+                    config.headers = {};
+                }
+
+                if (config.headers instanceof Headers) {
+                    config.headers.append('X-CSRF-TOKEN', token);
+                } else if (Array.isArray(config.headers)) {
+                    config.headers.push(['X-CSRF-TOKEN', token]);
+                } else {
+                    config.headers['X-CSRF-TOKEN'] = token;
+                }
+            }
+        }
+
+        try {
+            const response = await originalFetch(resource, config);
+
+            // Handle 403 (Forbidden/CSRF) & 419 (Session Expired)
+            if (response.status === 403 || response.status === 419) {
+                const clone = response.clone();
+                try {
+                    const result = await clone.json();
+                    // Cek pesan error spesifik dari backend (bootstrap.php)
+                    if (result.message && (result.message.includes('Token CSRF') || result.message.includes('tidak valid'))) {
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                title: 'Sesi Berakhir',
+                                text: 'Token keamanan tidak valid atau sesi Anda telah berakhir. Halaman akan dimuat ulang.',
+                                icon: 'warning',
+                                confirmButtonText: 'Muat Ulang',
+                                allowOutsideClick: false
+                            });
+                        } else {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang.');
+                        }
+                        window.location.reload();
+                    }
+                } catch (e) { /* Ignore JSON parse error */ }
+            }
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    };
+})();
+
+// =================================================================================
+// GLOBAL FORM SUBMISSION INTERCEPTOR FOR CSRF
+// =================================================================================
+// Secara otomatis menyisipkan input hidden csrf_token ke setiap form POST
+// baik yang disubmit via user interaction atau via JavaScript form.submit()
+// Ini mengatasi error CSRF pada laporan PDF yang menggunakan form POST target _blank
+
+(function() {
+    // Helper untuk cek same origin (agar token tidak terkirim ke domain luar)
+    function isSameOrigin(url) {
+        try {
+            if (!url) return true;
+            const origin = window.location.origin;
+            const target = new URL(url, origin).origin;
+            return origin === target;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 1. Intercept Programmatic submit() (misal: cetak PDF via dynamic form JS)
+    const originalSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function() {
+        const method = (this.getAttribute('method') || this.method || 'GET').toUpperCase();
+        const action = this.getAttribute('action') || this.action || window.location.href;
+
+        // Hanya tambahkan token jika method POST dan tujuan URL masih satu domain
+        if (method === 'POST' && isSameOrigin(action)) {
+            // Cek apakah input csrf_token sudah ada, jika belum baru tambahkan
+            if (!this.querySelector('input[name="csrf_token"]')) {
+                const token = getCsrfToken();
+                if (token) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'csrf_token';
+                    input.value = token;
+                    this.appendChild(input);
+                }
+            }
+        }
+
+        // Tampilkan Loading Spinner (SweetAlert)
+        // Timer digunakan karena kita tidak bisa mendeteksi secara pasti kapan download selesai pada target _blank
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Sedang menyiapkan dokumen...',
+                timer: 3000, // Estimasi waktu tunggu (3 detik)
+                timerProgressBar: true,
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        }
+
+        originalSubmit.apply(this, arguments);
+    };
+})();
+
+// =================================================================================
+// RIPPLE EFFECT HANDLER
+// =================================================================================
+// Menambahkan efek gelombang air saat tombol/menu diklik
+
+document.addEventListener('click', function (e) {
+    // Targetkan elemen yang diinginkan: nav-link di sidebar, tombol .btn, atau button biasa
+    const target = e.target.closest('.sidebar-nav .nav-link, .btn, button:not(.no-ripple)');
+    
+    if (target) {
+        // Pastikan elemen memiliki position relative dan overflow hidden agar ripple tidak keluar
+        const style = window.getComputedStyle(target);
+        if (style.position === 'static') target.style.position = 'relative';
+        if (style.overflow !== 'hidden') target.style.overflow = 'hidden';
+
+        const circle = document.createElement("span");
+        const diameter = Math.max(target.clientWidth, target.clientHeight);
+        const radius = diameter / 2;
+        const rect = target.getBoundingClientRect();
+
+        circle.style.width = circle.style.height = `${diameter}px`;
+        circle.style.left = `${e.clientX - rect.left - radius}px`;
+        circle.style.top = `${e.clientY - rect.top - radius}px`;
+        circle.classList.add("ripple-effect");
+
+        // Hapus ripple lama jika ada (opsional, untuk kebersihan DOM)
+        const existingRipple = target.querySelector('.ripple-effect');
+        if (existingRipple) existingRipple.remove();
+
+        target.appendChild(circle);
+
+        // Hapus elemen setelah animasi selesai (600ms sesuai CSS)
+        setTimeout(() => {
+            circle.remove();
+        }, 600);
+    }
+});
+
+// =================================================================================
+// SIDEBAR RESIZER
+// =================================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    const sidebar = document.getElementById('sidebar');
+    const resizer = document.getElementById('sidebar-resizer');
+
+    // Load saved width
+    const savedSidebarWidth = localStorage.getItem('sidebar_width');
+    if (savedSidebarWidth) {
+        document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth);
+    }
+
+    if (sidebar && resizer) {
+        let isResizing = false;
+        let startX, startWidth;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = parseInt(window.getComputedStyle(sidebar).width, 10);
+            
+            sidebar.classList.add('is-resizing'); // Disable transition
+            document.body.style.cursor = 'col-resize'; // Force cursor
+            document.body.style.userSelect = 'none'; // Disable text selection
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            let newWidth = startWidth + (e.clientX - startX);
+            // Batasi lebar minimal dan maksimal (misal: 200px - 500px)
+            if (newWidth < 200) newWidth = 200;
+            if (newWidth > 500) newWidth = 500;
+
+            document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                sidebar.classList.remove('is-resizing');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                
+                // Simpan lebar ke localStorage
+                localStorage.setItem('sidebar_width', document.documentElement.style.getPropertyValue('--sidebar-width'));
+            }
+        });
+    }
+});

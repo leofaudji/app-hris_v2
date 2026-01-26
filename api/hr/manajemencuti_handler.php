@@ -15,7 +15,20 @@ try {
     if ($method === 'GET') {
         $action = $_GET['action'] ?? 'list';
         if ($action === 'get_sisa_cuti') {
-            $karyawan_id = (int)$_GET['karyawan_id'];
+            $karyawan_id = isset($_GET['karyawan_id']) ? (int)$_GET['karyawan_id'] : 0;
+            // Jika bukan admin dan tidak ada karyawan_id di GET, ambil dari user login
+            if ((!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) && empty($karyawan_id)) {
+                $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+                if ($stmt_k) {
+                    $stmt_k->bind_param("i", $_SESSION['user_id']);
+                    $stmt_k->execute();
+                    $res_k = $stmt_k->get_result();
+                    if ($row_k = $res_k->fetch_assoc()) {
+                        $karyawan_id = $row_k['id'];
+                    }
+                }
+            }
+
             $tahun = (int)$_GET['tahun'];
             $stmt = $conn->prepare("SELECT sisa_jatah FROM hr_jatah_cuti WHERE karyawan_id = ? AND tahun = ?");
             $stmt->bind_param("ii", $karyawan_id, $tahun);
@@ -123,7 +136,19 @@ try {
             $params = [];
             $types = "";
 
-            if (!empty($_GET['karyawan_id'])) { $sql .= " AND pc.karyawan_id = ?"; $params[] = (int)$_GET['karyawan_id']; $types .= "i"; }
+            // Jika bukan admin, hanya tampilkan data sendiri
+            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
+                $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+                $stmt_k->bind_param("i", $_SESSION['user_id']);
+                $stmt_k->execute();
+                $res_k = $stmt_k->get_result();
+                if ($row_k = $res_k->fetch_assoc()) {
+                    $sql .= " AND pc.karyawan_id = ?";
+                    $params[] = $row_k['id'];
+                    $types .= "i";
+                }
+            } elseif (!empty($_GET['karyawan_id'])) { $sql .= " AND pc.karyawan_id = ?"; $params[] = (int)$_GET['karyawan_id']; $types .= "i"; }
+
             if (!empty($_GET['bulan'])) { $sql .= " AND MONTH(pc.tanggal_mulai) = ?"; $params[] = (int)$_GET['bulan']; $types .= "i"; }
             if (!empty($_GET['tahun'])) { $sql .= " AND YEAR(pc.tanggal_mulai) = ?"; $params[] = (int)$_GET['tahun']; $types .= "i"; }
 
@@ -139,7 +164,7 @@ try {
 
         if ($action === 'save') {
             $id = !empty($_POST['id']) ? (int)$_POST['id'] : null;
-            $karyawan_id = (int)$_POST['karyawan_id'];
+            $karyawan_id = isset($_POST['karyawan_id']) ? (int)$_POST['karyawan_id'] : null;
             $jenis_cuti_id = (int)$_POST['jenis_cuti_id'];
             $tanggal_mulai = $_POST['tanggal_mulai'];
             $tanggal_selesai = $_POST['tanggal_selesai'];
@@ -148,6 +173,16 @@ try {
             if ($id && empty($karyawan_id)) {
                  // Jika edit tapi karyawan_id kosong (misal disabled field), ambil dari DB
                  $karyawan_id = $conn->query("SELECT karyawan_id FROM hr_pengajuan_cuti WHERE id = $id")->fetch_assoc()['karyawan_id'];
+            }
+            // Jika user biasa, paksa ID karyawan sendiri
+            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
+                $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+                $stmt_k->bind_param("i", $_SESSION['user_id']);
+                $stmt_k->execute();
+                $res_k = $stmt_k->get_result();
+                if ($row_k = $res_k->fetch_assoc()) {
+                    $karyawan_id = $row_k['id'];
+                } else { throw new Exception("Data karyawan Anda tidak ditemukan."); }
             }
 
             if ($tanggal_selesai < $tanggal_mulai) throw new Exception("Tanggal selesai tidak boleh sebelum tanggal mulai.");
@@ -165,6 +200,20 @@ try {
                 }
             }
             if ($jumlah_hari <= 0) throw new Exception("Jumlah hari cuti harus lebih dari 0.");
+
+            // Handle File Upload
+            $lampiran_path = null;
+            if (isset($_FILES['lampiran_file']) && $_FILES['lampiran_file']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = PROJECT_ROOT . '/uploads/cuti/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                
+                $fileName = time() . '_' . basename($_FILES['lampiran_file']['name']);
+                $targetPath = $uploadDir . $fileName;
+                
+                if (move_uploaded_file($_FILES['lampiran_file']['tmp_name'], $targetPath)) {
+                    $lampiran_path = 'uploads/cuti/' . $fileName;
+                }
+            }
 
             $conn->begin_transaction();
             try {
@@ -225,8 +274,13 @@ try {
 
                 if ($id) {
                     // Update Data
-                    $stmt = $conn->prepare("UPDATE hr_pengajuan_cuti SET karyawan_id=?, jenis_cuti_id=?, tanggal_mulai=?, tanggal_selesai=?, jumlah_hari=?, keterangan=? WHERE id=?");
-                    $stmt->bind_param("iissisi", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan, $id);
+                    if ($lampiran_path) {
+                        $stmt = $conn->prepare("UPDATE hr_pengajuan_cuti SET karyawan_id=?, jenis_cuti_id=?, tanggal_mulai=?, tanggal_selesai=?, jumlah_hari=?, keterangan=?, lampiran_file=? WHERE id=?");
+                        $stmt->bind_param("iississi", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan, $lampiran_path, $id);
+                    } else {
+                        $stmt = $conn->prepare("UPDATE hr_pengajuan_cuti SET karyawan_id=?, jenis_cuti_id=?, tanggal_mulai=?, tanggal_selesai=?, jumlah_hari=?, keterangan=? WHERE id=?");
+                        $stmt->bind_param("iissisi", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan, $id);
+                    }
                     $stmt->execute();
                     
                     // Jika status sebelumnya approved, buat ulang absensi baru
@@ -245,8 +299,19 @@ try {
                     $msg = 'Data cuti berhasil diperbarui.';
                 } else {
                     // Insert Data Baru
-                    $stmt = $conn->prepare("INSERT INTO hr_pengajuan_cuti (karyawan_id, jenis_cuti_id, tanggal_mulai, tanggal_selesai, jumlah_hari, keterangan) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("iissis", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan);
+                    // Cari atasan untuk approval pertama
+                    $stmt_atasan = $conn->prepare("SELECT atasan_id FROM hr_karyawan WHERE id = ?");
+                    $stmt_atasan->bind_param("i", $karyawan_id);
+                    $stmt_atasan->execute();
+                    $atasan_karyawan_id = $stmt_atasan->get_result()->fetch_assoc()['atasan_id'] ?? null;
+                    
+                    $next_approver_id = null;
+                    if ($atasan_karyawan_id) {
+                        $next_approver_id = $conn->query("SELECT user_id FROM hr_karyawan WHERE id = $atasan_karyawan_id")->fetch_assoc()['user_id'] ?? null;
+                    }
+
+                    $stmt = $conn->prepare("INSERT INTO hr_pengajuan_cuti (karyawan_id, jenis_cuti_id, tanggal_mulai, tanggal_selesai, jumlah_hari, keterangan, next_approver_id, lampiran_file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iissisis", $karyawan_id, $jenis_cuti_id, $tanggal_mulai, $tanggal_selesai, $jumlah_hari, $keterangan, $next_approver_id, $lampiran_path);
                     $stmt->execute();
                     $msg = 'Pengajuan cuti berhasil disimpan.';
                 }
@@ -270,10 +335,31 @@ try {
                 $stmt_pengajuan->execute();
                 $pengajuan = $stmt_pengajuan->get_result()->fetch_assoc();
 
-                if (!$pengajuan || $pengajuan['status'] !== 'pending') throw new Exception("Pengajuan tidak ditemukan atau sudah diproses.");
+                if (!$pengajuan || $pengajuan['status'] !== 'pending' || $pengajuan['next_approver_id'] != $user_id_approver) {
+                    throw new Exception("Anda tidak memiliki wewenang untuk memproses pengajuan ini atau pengajuan sudah diproses.");
+                }
 
-                $stmt_update = $conn->prepare("UPDATE hr_pengajuan_cuti SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?");
-                $stmt_update->bind_param("sii", $status, $user_id_approver, $id);
+                // Update approver list
+                $approved_by_list = json_decode($pengajuan['approved_by'] ?? '[]', true);
+                $approved_by_list[] = $user_id_approver;
+                $approved_by_json = json_encode($approved_by_list);
+
+                // Cari atasan dari approver saat ini untuk approval selanjutnya
+                $stmt_next = $conn->prepare("SELECT k.atasan_id FROM hr_karyawan k JOIN users u ON k.user_id = u.id WHERE u.id = ?");
+                $stmt_next->bind_param("i", $user_id_approver);
+                $stmt_next->execute();
+                $atasan_approver_id = $stmt_next->get_result()->fetch_assoc()['atasan_id'] ?? null;
+
+                $next_approver_id = null;
+                if ($atasan_approver_id) {
+                    $next_approver_id = $conn->query("SELECT user_id FROM hr_karyawan WHERE id = $atasan_approver_id")->fetch_assoc()['user_id'] ?? null;
+                }
+
+                // Jika sudah tidak ada atasan lagi, status final adalah 'approved'
+                $final_status = ($status === 'approved' && $next_approver_id === null) ? 'approved' : $status;
+
+                $stmt_update = $conn->prepare("UPDATE hr_pengajuan_cuti SET status = ?, approved_by = ?, next_approver_id = ?, approved_at = NOW() WHERE id = ?");
+                $stmt_update->bind_param("ssii", $final_status, $approved_by_json, $next_approver_id, $id);
                 $stmt_update->execute();
 
                 // Jika ditolak, kembalikan jatah cuti
@@ -289,7 +375,7 @@ try {
                     }
                 }
                 // Jika disetujui, masukkan ke tabel absensi
-                elseif ($status === 'approved') {
+                elseif ($final_status === 'approved') {
                     $stmt_absensi = $conn->prepare("INSERT INTO hr_absensi (karyawan_id, tanggal, status, keterangan) VALUES (?, ?, 'izin', ?)");
                     $start = new DateTime($pengajuan['tanggal_mulai']);
                     $end = new DateTime($pengajuan['tanggal_selesai']);
@@ -308,7 +394,11 @@ try {
                 }
 
                 $conn->commit();
-                echo json_encode(['success' => true, 'message' => "Status pengajuan berhasil diubah menjadi '{$status}'."]);
+                $msg = "Status pengajuan berhasil diubah menjadi '{$status}'.";
+                if ($status === 'approved' && $next_approver_id) {
+                    $msg .= " Menunggu persetujuan atasan selanjutnya.";
+                }
+                echo json_encode(['success' => true, 'message' => $msg]);
             } catch (Exception $e) {
                 $conn->rollback();
                 throw $e;
