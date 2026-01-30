@@ -39,62 +39,140 @@ try {
             $start = $_GET['start'];
             $end = $_GET['end'];
             $divisi_id = !empty($_GET['divisi_id']) ? (int)$_GET['divisi_id'] : null;
+            
+            // Jika bukan admin, batasi ke divisi sendiri
+            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
+                $stmt_user_div = $conn->prepare("SELECT divisi_id FROM hr_karyawan WHERE user_id = ?");
+                $stmt_user_div->bind_param("i", $_SESSION['user_id']);
+                $stmt_user_div->execute();
+                $res_user_div = $stmt_user_div->get_result();
+                if ($row_div = $res_user_div->fetch_assoc()) {
+                    $divisi_id = $row_div['divisi_id'];
+                }
+            }
+            
+            $events = [];
 
-            $sql = "
+            // 1. Fetch Cuti (Leaves)
+            $sql_cuti = "
                 SELECT
                     pc.id, 
                     pc.karyawan_id,
                     pc.jenis_cuti_id,
-                    k.nama_lengkap as title, 
-                    k.nama_lengkap as employee_name,
+                    k.nama_lengkap,
                     pc.tanggal_mulai as start, 
                     pc.tanggal_selesai as end_date,
                     jc.nama_jenis,
                     pc.keterangan,
-                    pc.jumlah_hari
+                    pc.jumlah_hari,
+                    'leave' as type
                 FROM hr_pengajuan_cuti pc
                 JOIN hr_karyawan k ON pc.karyawan_id = k.id
                 JOIN hr_jenis_cuti jc ON pc.jenis_cuti_id = jc.id
                 WHERE pc.status = 'approved' AND pc.tanggal_mulai <= ? AND pc.tanggal_selesai >= ?";
             
-            $params = [$end, $start];
-            $types = "ss";
+            $params_cuti = [$end, $start];
+            $types_cuti = "ss";
 
             if ($divisi_id) {
-                $sql .= " AND k.divisi_id = ?";
-                $params[] = $divisi_id;
-                $types .= "i";
+                $sql_cuti .= " AND k.divisi_id = ?";
+                $params_cuti[] = $divisi_id;
+                $types_cuti .= "i";
             }
 
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param($types, ...$params);
+            $stmt = $conn->prepare($sql_cuti);
+            $stmt->bind_param($types_cuti, ...$params_cuti);
             $stmt->execute();
-            $events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $res_cuti = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-            // Adjust end date for FullCalendar all-day events
-            foreach ($events as &$event) {
-                $endDate = new DateTime($event['end_date']);
+            foreach ($res_cuti as $row) {
+                $endDate = new DateTime($row['end_date']);
                 $endDate->modify('+1 day');
-                $event['end'] = $endDate->format('Y-m-d');
                 
-                // Assign color based on type
-                $jenis = strtolower($event['nama_jenis']);
-                if (strpos($jenis, 'tahunan') !== false) {
-                    $event['backgroundColor'] = '#3B82F6'; // Blue-500
-                    $event['borderColor'] = '#3B82F6';
-                } elseif (strpos($jenis, 'sakit') !== false) {
-                    $event['backgroundColor'] = '#10B981'; // Emerald-500
-                    $event['borderColor'] = '#10B981';
-                } elseif (strpos($jenis, 'melahirkan') !== false) {
-                    $event['backgroundColor'] = '#8B5CF6'; // Violet-500
-                    $event['borderColor'] = '#8B5CF6';
-                } else {
-                    $event['backgroundColor'] = '#F59E0B'; // Amber-500
-                    $event['borderColor'] = '#F59E0B';
-                }
+                $color = '#F59E0B'; // Default Amber
+                $jenis = strtolower($row['nama_jenis']);
+                if (strpos($jenis, 'tahunan') !== false) $color = '#3B82F6'; // Blue
+                elseif (strpos($jenis, 'sakit') !== false) $color = '#10B981'; // Emerald
+                elseif (strpos($jenis, 'melahirkan') !== false) $color = '#8B5CF6'; // Violet
 
-                $event['title'] = $event['title'] . ' (' . $event['nama_jenis'] . ')';
-                unset($event['end_date']); // Clean up
+                $events[] = [
+                    'id' => 'cuti-' . $row['id'],
+                    'title' => $row['nama_lengkap'] . ' (' . $row['nama_jenis'] . ')',
+                    'start' => $row['start'],
+                    'end' => $endDate->format('Y-m-d'),
+                    'backgroundColor' => $color,
+                    'borderColor' => $color,
+                    'extendedProps' => [
+                        'type' => 'leave',
+                        'keterangan' => $row['keterangan'],
+                        'jumlah_hari' => $row['jumlah_hari'],
+                        'nama_jenis' => $row['nama_jenis'],
+                        'employee_name' => $row['nama_lengkap']
+                    ]
+                ];
+            }
+
+            // 2. Fetch Hari Libur Nasional (Holidays)
+            $sql_libur = "SELECT id, keterangan, tanggal FROM hr_libur_nasional WHERE tanggal BETWEEN ? AND ?";
+            $stmt = $conn->prepare($sql_libur);
+            $stmt->bind_param("ss", $start, $end);
+            $stmt->execute();
+            $res_libur = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+            foreach ($res_libur as $row) {
+                $events[] = [
+                    'id' => 'libur-' . $row['id'],
+                    'title' => $row['keterangan'],
+                    'start' => $row['tanggal'],
+                    'allDay' => true,
+                    'display' => 'background', // Tampil sebagai background event
+                    'backgroundColor' => '#EF4444', // Red-500
+                    'borderColor' => '#EF4444',
+                    'extendedProps' => [
+                        'type' => 'holiday',
+                        'keterangan' => 'Hari Libur Nasional'
+                    ]
+                ];
+            }
+
+            // 3. Fetch Ulang Tahun (Birthdays)
+            $sql_ultah = "SELECT id, nama_lengkap, tanggal_lahir FROM hr_karyawan WHERE status = 'aktif' AND tanggal_lahir IS NOT NULL";
+            if ($divisi_id) {
+                $sql_ultah .= " AND divisi_id = $divisi_id";
+            }
+            $res_ultah = $conn->query($sql_ultah)->fetch_all(MYSQLI_ASSOC);
+
+            $startDate = new DateTime($start);
+            $endDate = new DateTime($end);
+            $startYear = (int)$startDate->format('Y');
+            $endYear = (int)$endDate->format('Y');
+
+            foreach ($res_ultah as $emp) {
+                if (!$emp['tanggal_lahir']) continue;
+                $dob = new DateTime($emp['tanggal_lahir']);
+                $bMonth = $dob->format('m');
+                $bDay = $dob->format('d');
+
+                // Loop tahun untuk handle pergantian tahun di view kalender
+                for ($year = $startYear; $year <= $endYear; $year++) {
+                    $bDateCurrentYear = new DateTime("$year-$bMonth-$bDay");
+                    
+                    if ($bDateCurrentYear >= $startDate && $bDateCurrentYear <= $endDate) {
+                        $events[] = [
+                            'id' => 'ultah-' . $emp['id'] . '-' . $year,
+                            'title' => 'Ultah ' . $emp['nama_lengkap'],
+                            'start' => $bDateCurrentYear->format('Y-m-d'),
+                            'allDay' => true,
+                            'backgroundColor' => '#EC4899', // Pink-500
+                            'borderColor' => '#EC4899',
+                            'extendedProps' => [
+                                'type' => 'birthday',
+                                'employee_name' => $emp['nama_lengkap'],
+                                'keterangan' => 'Ulang Tahun ke-' . ($year - (int)$dob->format('Y'))
+                            ]
+                        ];
+                    }
+                }
             }
 
             echo json_encode($events);

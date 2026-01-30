@@ -139,11 +139,14 @@ $router->get('/hr/pengaturan-pajak', 'pages/hr/pengaturan_pajak.php', ['auth']);
 $router->get('/hr/manajemen-klaim', 'pages/hr/manajemen_klaim.php', ['auth']);
 $router->get('/hr/lembur', 'pages/hr/lembur.php', ['auth']);
 $router->get('/hr/peringatan-kontrak', 'pages/hr/peringatan_kontrak.php', ['auth']);
+$router->get('/hr/dokumen-perusahaan', 'pages/hr/dokumen_perusahaan.php', ['auth']);
+$router->get('/hr/request-surat', 'pages/hr/request_surat.php', ['auth']);
 $router->get('/hr/kpi-templates', 'pages/hr/kpi_templates.php', ['auth']);
 $router->get('/hr/penilaian-kinerja', 'pages/hr/penilaian_kinerja.php', ['auth']);
 $router->get('/hr/pengumuman', 'pages/hr/pengumuman.php', ['auth']);
 $router->get('/hr/rekrutmen', 'pages/hr/rekrutmen.php', ['auth']);
 $router->get('/hr/offboarding', 'pages/hr/offboarding.php', ['auth']);
+$router->get('/hr/qrcode-generator', 'pages/hr/qrcode_generator.php', ['auth']);
 
 // --- Rute Portal Karyawan ---
 $router->get('/hr/portal/dashboard', 'pages/hr/portal/dashboard.php', ['auth']);
@@ -263,6 +266,10 @@ $router->get('/api/hr/lembur', 'api/hr/lembur_handler.php', ['auth']);
 $router->post('/api/hr/lembur', 'api/hr/lembur_handler.php', ['auth']);
 $router->get('/api/hr/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
 $router->post('/api/hr/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
+$router->get('/api/hr/dokumen-perusahaan', 'api/hr/dokumen_perusahaan_handler.php', ['auth']);
+$router->post('/api/hr/dokumen-perusahaan', 'api/hr/dokumen_perusahaan_handler.php', ['auth']);
+$router->get('/api/hr/request-surat', 'api/hr/request_surat_handler.php', ['auth']);
+$router->post('/api/hr/request-surat', 'api/hr/request_surat_handler.php', ['auth']);
 $router->get('/api/hr/kpi', 'api/hr/kpi_handler.php', ['auth']);
 $router->post('/api/hr/kpi', 'api/hr/kpi_handler.php', ['auth']);
 $router->get('/api/hr/pengumuman', 'api/hr/pengumuman_handler.php', ['auth']);
@@ -276,9 +283,37 @@ $router->post('/api/hr/offboarding', 'api/hr/offboarding_handler.php', ['auth'])
 $router->get('/api/hr/portal/dashboard', 'api/hr/portal/dashboard_handler.php', ['auth']);
 $router->get('/api/hr/portal/profil', 'api/hr/portal/profil_handler.php', ['auth']);
 $router->get('/api/hr/portal/absensi', 'api/hr/portal/absensi_handler.php', ['auth']);
+$router->get('/hr/portal/directory', 'pages/hr/portal/directory.php', ['auth']);
+$router->get('/api/hr/portal/directory', 'api/hr/portal/directory_handler.php', ['auth']);
+$router->post('/api/hr/portal/absensi', 'api/hr/portal/absensi_handler.php', ['auth']);
+$router->get('/hr/portal/kalender', 'pages/hr/portal/kalender.php', ['auth']);
+$router->get('/hr/portal/dokumen', 'pages/hr/portal/dokumen.php', ['auth']);
+$router->get('/api/hr/portal/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
+$router->post('/api/hr/portal/dokumen', 'api/hr/dokumen_handler.php', ['auth']);
+$router->get('/hr/portal/lembur', 'pages/hr/portal/lembur.php', ['auth']);
+$router->get('/api/hr/portal/lembur', 'api/hr/portal/lembur_handler.php', ['auth']);
+$router->post('/api/hr/portal/lembur', 'api/hr/portal/lembur_handler.php', ['auth']);
+$router->get('/hr/portal/kpi', 'pages/hr/portal/kpi.php', ['auth']);
+$router->get('/api/hr/portal/kpi', 'api/hr/portal/kpi_handler.php', ['auth']);
 $router->get('/api/hr/portal/slip-gaji', 'api/hr/portal/slipgaji_handler.php', ['auth']);
 $router->get('/api/hr/portal/klaim', 'api/hr/portal/klaim_handler.php', ['auth']); // Handler khusus portal atau gunakan handler umum dengan filter
 
+// --- Rute Publik QR Code (Pretty URL) ---
+// Halaman Tampilan (View)
+$router->get('/qr/absensi/{kantor_id}/{lokasi}', function($params) {
+    $_GET['kantor_id'] = $params['kantor_id'];
+    $_GET['lokasi'] = urldecode($params['lokasi']);
+    $_GET['mode'] = 'view'; 
+    require 'public_qrcode.php';
+});
+
+// Gambar QR Code (Raw Image)
+$router->get('/qr/img/{kantor_id}/{lokasi}', function($params) {
+    $_GET['kantor_id'] = $params['kantor_id'];
+    $_GET['lokasi'] = urldecode($params['lokasi']);
+    $_GET['mode'] = 'raw';
+    require 'public_qrcode.php';
+});
 
 // Jalankan router
 $router->dispatch();

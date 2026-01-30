@@ -39,8 +39,31 @@ function initKalenderCutiPage() {
         eventDisplay: 'block',
         eventContent: function(arg) {
             let icon = 'bi-calendar-check';
-            const titleLower = arg.event.title.toLowerCase();
+            const props = arg.event.extendedProps;
             
+            // Custom styling untuk Libur dan Ultah
+            if (props.type === 'holiday') {
+                icon = 'bi-flag-fill';
+                return {
+                    html: `
+                        <div class="fc-event-main-frame flex items-center px-1 overflow-hidden text-white rounded" style="background-color: #EF4444;">
+                            <i class="bi ${icon} mr-1"></i>
+                            <div class="fc-event-title fc-sticky truncate">${arg.event.title}</div>
+                        </div>`
+                };
+            } else if (props.type === 'birthday') {
+                icon = 'bi-gift-fill';
+                return {
+                    html: `
+                        <div class="fc-event-main-frame flex items-center px-1 overflow-hidden text-white rounded" style="background-color: #EC4899;">
+                            <i class="bi ${icon} mr-1"></i>
+                            <div class="fc-event-title fc-sticky truncate">${arg.event.title}</div>
+                        </div>`
+                };
+            }
+
+            // Styling untuk Cuti
+            const titleLower = arg.event.title.toLowerCase();
             if (titleLower.includes('tahunan')) icon = 'bi-briefcase';
             else if (titleLower.includes('sakit')) icon = 'bi-bandaid';
             else if (titleLower.includes('melahirkan')) icon = 'bi-heart-pulse';
@@ -128,11 +151,23 @@ window.closeEventDetailModal = function() {
 function showEventDetail(event) {
     const props = event.extendedProps;
     
-    // Isi data ke dalam modal
-    document.getElementById('detail-nama').textContent = props.employee_name || event.title;
-    document.getElementById('detail-jenis').textContent = props.nama_jenis || '-';
-    document.getElementById('detail-durasi').textContent = (props.jumlah_hari || 1) + ' Hari';
-    document.getElementById('detail-keterangan').textContent = props.keterangan || 'Tidak ada keterangan';
+    if (props.type === 'holiday') {
+        document.getElementById('detail-nama').textContent = 'Hari Libur Nasional';
+        document.getElementById('detail-jenis').textContent = '-';
+        document.getElementById('detail-durasi').textContent = '1 Hari';
+        document.getElementById('detail-keterangan').textContent = event.title;
+    } else if (props.type === 'birthday') {
+        document.getElementById('detail-nama').textContent = props.employee_name;
+        document.getElementById('detail-jenis').textContent = 'Ulang Tahun';
+        document.getElementById('detail-durasi').textContent = '1 Hari';
+        document.getElementById('detail-keterangan').textContent = props.keterangan;
+    } else {
+        // Isi data cuti ke dalam modal
+        document.getElementById('detail-nama').textContent = props.employee_name || event.title;
+        document.getElementById('detail-jenis').textContent = props.nama_jenis || '-';
+        document.getElementById('detail-durasi').textContent = (props.jumlah_hari || 1) + ' Hari';
+        document.getElementById('detail-keterangan').textContent = props.keterangan || 'Tidak ada keterangan';
+    }
     
     // Format tanggal
     const start = event.start;
@@ -149,10 +184,15 @@ function showEventDetail(event) {
     // Setup tombol Edit
     const btnEdit = document.getElementById('btn-edit-cuti');
     if (btnEdit) {
-        btnEdit.onclick = function() {
-            closeEventDetailModal();
-            openEditCutiModal(event);
-        };
+        if (props.type === 'leave') {
+            btnEdit.style.display = 'inline-block';
+            btnEdit.onclick = function() {
+                closeEventDetailModal();
+                openEditCutiModal(event);
+            };
+        } else {
+            btnEdit.style.display = 'none';
+        }
     }
 
     // Tampilkan modal

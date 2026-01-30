@@ -117,7 +117,7 @@ class RaporKPIReportBuilder implements ReportBuilderInterface
             $this->pdf->Cell(25, 8, number_format($nilai_akhir, 2), 1, 0, 'C');
             
             // Truncate comment if too long to keep row height consistent
-            $komentar = $row['komentar'];
+            $komentar = $row['komentar'] ?? '';
             if (strlen($komentar) > 25) {
                 $komentar = substr($komentar, 0, 22) . '...';
             }

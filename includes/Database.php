@@ -15,6 +15,9 @@ class Database
         try {
             $this->conn = new mysqli($server, $username, $password, $name);
             $this->conn->set_charset("utf8mb4");
+            
+            // Set timezone database ke GMT+7 agar sinkron dengan aplikasi
+            $this->conn->query("SET time_zone = '+07:00'");
         } catch (mysqli_sql_exception $e) {
             // In a real app, log this error instead of echoing
             error_log("Database connection failed: " . $e->getMessage());

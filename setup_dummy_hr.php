@@ -36,6 +36,8 @@ $conn->query("DROP TABLE IF EXISTS hr_offboarding;");
 $conn->query("DROP TABLE IF EXISTS hr_evaluasi_probation;");
 $conn->query("DROP TABLE IF EXISTS hr_riwayat_gaji;");
 $conn->query("DROP TABLE IF EXISTS hr_lowongan;");
+$conn->query("DROP TABLE IF EXISTS hr_dokumen_perusahaan;");
+$conn->query("DROP TABLE IF EXISTS hr_request_surat;");
 
 // Truncate Master Tables
 $conn->query("TRUNCATE TABLE hr_kantor;");
@@ -125,6 +127,9 @@ foreach ($golongans as $g) {
 log_step("Data Golongan Gaji berhasil dibuat.");
 
 // 6. Komponen Gaji
+// Update struktur tabel untuk mendukung tipe hitung 'lembur'
+$conn->query("ALTER TABLE `hr_komponen_gaji` MODIFY COLUMN `tipe_hitung` ENUM('bulanan','harian','lembur') NOT NULL DEFAULT 'bulanan'");
+
 $komponens = [
     ['nama_komponen' => 'Tunjangan Transport', 'jenis' => 'pendapatan', 'tipe_hitung' => 'harian', 'nilai_default' => 25000, 'is_default' => 1],
     ['nama_komponen' => 'Tunjangan Makan', 'jenis' => 'pendapatan', 'tipe_hitung' => 'harian', 'nilai_default' => 30000, 'is_default' => 1],
@@ -186,6 +191,13 @@ $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'port
 $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_profil')");
 $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_absensi')");
 $conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_slip_gaji')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_kalender')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_dokumen')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_pengajuan_cuti')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_klaim')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_lembur')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_kpi')");
+$conn->query("INSERT IGNORE INTO role_menus (role_id, menu_key) VALUES (4, 'portal_directory')");
 log_step("Role 'Karyawan' dan akses menunya berhasil dibuat.");
 
 
@@ -467,6 +479,47 @@ CREATE TABLE IF NOT EXISTS `hr_riwayat_gaji` (
 $conn->query($sql_riwayat_gaji);
 log_step("Tabel Riwayat Gaji berhasil dibuat.");
 
+// 10.l Dokumen Perusahaan & Request Surat (New Feature)
+$sql_docs_tables = "
+CREATE TABLE IF NOT EXISTS `hr_dokumen_perusahaan` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `judul` varchar(255) NOT NULL,
+  `kategori` varchar(100) NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_request_surat` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `jenis_surat` varchar(50) NOT NULL,
+  `keterangan` text,
+  `status` enum('pending','processed','completed','rejected') DEFAULT 'pending',
+  `file_path` varchar(255) DEFAULT NULL,
+  `admin_note` text,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$conn->multi_query($sql_docs_tables);
+while ($conn->more_results() && $conn->next_result()) {;}
+log_step("Tabel Dokumen Perusahaan & Request Surat berhasil dibuat.");
+
+// Dummy Data Dokumen Perusahaan
+$docs = [
+    ['judul' => 'Peraturan Perusahaan 2024', 'kategori' => 'Peraturan', 'file_path' => '#'],
+    ['judul' => 'Kebijakan Cuti & Absensi', 'kategori' => 'Kebijakan', 'file_path' => '#'],
+    ['judul' => 'Panduan Klaim Reimbursement', 'kategori' => 'Panduan', 'file_path' => '#'],
+];
+foreach ($docs as $d) {
+    $stmt = $conn->prepare("INSERT INTO hr_dokumen_perusahaan (judul, kategori, file_path) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $d['judul'], $d['kategori'], $d['file_path']);
+    $stmt->execute();
+}
+
 // 11. Karyawan
 // Ambil ID dari tabel master untuk relasi acak
 $kantor_ids = $conn->query("SELECT id FROM hr_kantor")->fetch_all(MYSQLI_ASSOC);
@@ -524,9 +577,10 @@ foreach ($structure as $i => $k) {
     $golongan_id = $golongan_ids[$i % count($golongan_ids)]['id'];
     $tgl_masuk = date('Y-m-d', strtotime("-" . rand(1, 5) . " years"));
     $tgl_kontrak = date('Y-m-d', strtotime("+" . rand(3, 24) . " months"));
+    $tgl_lahir = date('Y-m-d', strtotime("-" . rand(22, 45) . " years -" . rand(0, 365) . " days"));
 
-    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, jabatan_id, atasan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
-    $stmt->bind_param("ssiiiiisss", $k['nip'], $k['nama'], $jabatan_id, $atasan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
+    $stmt = $conn->prepare("INSERT INTO hr_karyawan (nip, nama_lengkap, tanggal_lahir, jabatan_id, atasan_id, jadwal_kerja_id, divisi_id, kantor_id, golongan_gaji_id, tanggal_masuk, tanggal_berakhir_kontrak, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif')");
+    $stmt->bind_param("sssiiiiisss", $k['nip'], $k['nama'], $tgl_lahir, $jabatan_id, $atasan_id, $jadwal_id, $divisi_id, $kantor_id, $golongan_id, $tgl_masuk, $tgl_kontrak);
     
     if ($stmt->execute()) {
         $employee_ids[$k['nip']] = $conn->insert_id;
@@ -758,6 +812,19 @@ $conn->query("INSERT INTO hr_penilaian_kinerja (karyawan_id, template_id, period
 $penilaian_id_siti = $conn->insert_id;
 foreach($indicators_kpi as $idx => $ind) { $conn->query("INSERT INTO hr_penilaian_detail (penilaian_id, indikator_id, skor) VALUES ($penilaian_id_siti, {$ind['id']}, {$skor_siti[$idx]})"); }
 log_step("Data Dummy Penilaian KPI berhasil dibuat.");
+
+// 12.e Dummy Data Request Surat
+$req_surats = [
+    ['karyawan_id' => $budi_id, 'jenis' => 'paklaring', 'ket' => 'Untuk pengajuan KPR', 'status' => 'pending', 'note' => null],
+    ['karyawan_id' => $siti_id, 'jenis' => 'keterangan_kerja', 'ket' => 'Syarat pembuatan Visa', 'status' => 'completed', 'note' => 'Surat telah dikirim via email'],
+    ['karyawan_id' => $rudi_id, 'jenis' => 'keterangan_penghasilan', 'ket' => 'Pengajuan kartu kredit', 'status' => 'rejected', 'note' => 'Data gaji belum final'],
+];
+foreach ($req_surats as $req) {
+    $stmt = $conn->prepare("INSERT INTO hr_request_surat (karyawan_id, jenis_surat, keterangan, status, admin_note) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("issss", $req['karyawan_id'], $req['jenis'], $req['ket'], $req['status'], $req['note']);
+    $stmt->execute();
+}
+log_step("Data Dummy Request Surat berhasil dibuat.");
 
 // Ambil data karyawan lengkap untuk gaji
 $sql_karyawan_gaji = "SELECT k.id, gg.gaji_pokok, j.tunjangan FROM hr_karyawan k LEFT JOIN hr_jabatan j ON k.jabatan_id = j.id LEFT JOIN hr_golongan_gaji gg ON k.golongan_gaji_id = gg.id WHERE k.status = 'aktif'";

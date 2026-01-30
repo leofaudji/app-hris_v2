@@ -1,7 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Hapus tabel lama jika ada
-DROP TABLE IF EXISTS `transaksi`, `anggaran`, `users`, `settings`, `accounts`, `activity_log`,`jurnal_entries`,`jurnal_details`,`general_ledger`, `suppliers`, `consignment_items`,`recurring_templates`, `reconciliations`, `fixed_assets`, `customers`, `invoices`, `invoice_items`, `payments_received`;
+DROP TABLE IF EXISTS `transaksi`, `anggaran`, `users`, `settings`, `accounts`, `activity_log`,`jurnal_entries`,`jurnal_details`,`general_ledger`, `suppliers`, `consignment_items`,`recurring_templates`, `reconciliations`, `fixed_assets`, `customers`, `invoices`, `invoice_items`, `payments_received`, `pembelian`, `pembelian_details`, `items`, `item_categories`, `stock_adjustments`, `penjualan`, `penjualan_details`, `kartu_stok`, `roles`, `permissions`, `role_permissions`, `role_menus`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 

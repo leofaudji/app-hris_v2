@@ -55,12 +55,50 @@ try {
         }
         elseif ($action === 'list_documents') {
             $karyawan_id = $_GET['karyawan_id'] ?? 0;
+            
+            // Jika bukan admin, paksa ambil ID karyawan sendiri dari session user_id
+            if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
+                $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+                $stmt_k->bind_param("i", $_SESSION['user_id']);
+                $stmt_k->execute();
+                $res_k = $stmt_k->get_result();
+                if ($row_k = $res_k->fetch_assoc()) {
+                    $karyawan_id = $row_k['id'];
+                }
+            }
+
             $sql = "SELECT * FROM hr_dokumen_karyawan WHERE karyawan_id = ? ORDER BY created_at DESC";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("i", $karyawan_id);
             $stmt->execute();
             $data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             echo json_encode(['success' => true, 'data' => $data]);
+        }
+        elseif ($action === 'list_general_docs') {
+            $sql = "SELECT * FROM hr_dokumen_perusahaan ORDER BY kategori ASC, judul ASC";
+            $data = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+            echo json_encode(['success' => true, 'data' => $data]);
+        }
+        elseif ($action === 'list_requests') {
+            $karyawan_id = 0;
+            $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+            $stmt_k->bind_param("i", $_SESSION['user_id']);
+            $stmt_k->execute();
+            $res_k = $stmt_k->get_result();
+            if ($row_k = $res_k->fetch_assoc()) {
+                $karyawan_id = $row_k['id'];
+            }
+
+            $sql = "SELECT * FROM hr_request_surat WHERE karyawan_id = ? ORDER BY created_at DESC";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("i", $karyawan_id);
+                $stmt->execute();
+                $data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                echo json_encode(['success' => true, 'data' => $data]);
+            } else {
+                echo json_encode(['success' => true, 'data' => []]);
+            }
         }
 
     } elseif ($method === 'POST') {
@@ -112,6 +150,32 @@ try {
             } else {
                 throw new Exception("Dokumen tidak ditemukan.");
             }
+        }
+        elseif ($action === 'request_letter') {
+            $karyawan_id = 0;
+            $stmt_k = $conn->prepare("SELECT id FROM hr_karyawan WHERE user_id = ?");
+            $stmt_k->bind_param("i", $_SESSION['user_id']);
+            $stmt_k->execute();
+            $res_k = $stmt_k->get_result();
+            if ($row_k = $res_k->fetch_assoc()) {
+                $karyawan_id = $row_k['id'];
+            }
+
+            if ($karyawan_id == 0) {
+                throw new Exception("Data karyawan tidak ditemukan.");
+            }
+
+            $jenis_surat = $_POST['jenis_surat'] ?? '';
+            $keterangan = $_POST['keterangan'] ?? '';
+
+            $stmt = $conn->prepare("INSERT INTO hr_request_surat (karyawan_id, jenis_surat, keterangan, status) VALUES (?, ?, ?, 'pending')");
+            if (!$stmt) {
+                throw new Exception("Gagal memproses permintaan (Tabel database mungkin belum ada).");
+            }
+            $stmt->bind_param("iss", $karyawan_id, $jenis_surat, $keterangan);
+            $stmt->execute();
+            
+            echo json_encode(['success' => true, 'message' => 'Permintaan surat berhasil dikirim.']);
         }
     }
 } catch (Exception $e) {

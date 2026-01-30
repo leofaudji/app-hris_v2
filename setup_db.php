@@ -73,13 +73,12 @@ if ($conn_setup->query("CREATE DATABASE IF NOT EXISTS `" . $db_name . "` CHARACT
 }
 $conn_setup->select_db($db_name);
 
-/*
 if ($conn_setup->multi_query($sql)) {
     while ($conn_setup->more_results() && $conn_setup->next_result()) {;}
     log_message("Struktur tabel dan data awal berhasil dibuat.");
 } else {
     log_error_and_die("Error saat setup tabel", $conn_setup->error);
-}*/
+}
 
 // --- Setup Tabel HR & Payroll ---
 $sql_hr = "
@@ -181,6 +180,10 @@ CREATE TABLE IF NOT EXISTS `hr_absensi` (
   `jam_keluar` time DEFAULT NULL,
   `status` enum('hadir','izin','sakit','alpa') DEFAULT 'hadir',
   `keterangan` text,
+  `foto_masuk` varchar(255) DEFAULT NULL,
+  `foto_keluar` varchar(255) DEFAULT NULL,
+  `lokasi_masuk` varchar(255) DEFAULT NULL,
+  `lokasi_keluar` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `karyawan_id` (`karyawan_id`),
@@ -347,6 +350,18 @@ if ($check_col && $check_col->num_rows == 0) {
     log_message("Kolom 'golongan' berhasil ditambahkan ke tabel hr_absensi.");
 }
 
+$check_col_foto = $conn_setup->query("SHOW COLUMNS FROM `hr_absensi` LIKE 'foto_masuk'");
+if ($check_col_foto && $check_col_foto->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_absensi` ADD COLUMN `foto_masuk` VARCHAR(255) DEFAULT NULL AFTER `keterangan`, ADD COLUMN `foto_keluar` VARCHAR(255) DEFAULT NULL AFTER `foto_masuk`, ADD COLUMN `lokasi_masuk` VARCHAR(255) DEFAULT NULL AFTER `foto_keluar`, ADD COLUMN `lokasi_keluar` VARCHAR(255) DEFAULT NULL AFTER `lokasi_masuk`");
+    log_message("Kolom foto dan lokasi berhasil ditambahkan ke tabel hr_absensi.");
+}
+
+$check_col_jenis = $conn_setup->query("SHOW COLUMNS FROM `hr_absensi` LIKE 'jenis_absensi'");
+if ($check_col_jenis && $check_col_jenis->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_absensi` ADD COLUMN `jenis_absensi` ENUM('qrcode','selfie','manual') DEFAULT 'manual' AFTER `tanggal`");
+    log_message("Kolom 'jenis_absensi' berhasil ditambahkan ke tabel hr_absensi.");
+}
+
 $check_col_atasan = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'atasan_id'");
 if ($check_col_atasan && $check_col_atasan->num_rows == 0) {
     $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `atasan_id` INT(11) DEFAULT NULL AFTER `jabatan_id`, ADD KEY `atasan_id` (`atasan_id`), ADD CONSTRAINT `fk_hr_karyawan_atasan` FOREIGN KEY (`atasan_id`) REFERENCES `hr_karyawan` (`id`) ON DELETE SET NULL;");
@@ -391,14 +406,58 @@ if ($check_col_komponen_nilai && $check_col_komponen_nilai->num_rows == 0) {
 
 $check_col_komponen_tipe = $conn_setup->query("SHOW COLUMNS FROM `hr_komponen_gaji` LIKE 'tipe_hitung'");
 if ($check_col_komponen_tipe && $check_col_komponen_tipe->num_rows == 0) {
-    $conn_setup->query("ALTER TABLE `hr_komponen_gaji` ADD COLUMN `tipe_hitung` ENUM('bulanan','harian') NOT NULL DEFAULT 'bulanan' AFTER `jenis`");
+    $conn_setup->query("ALTER TABLE `hr_komponen_gaji` ADD COLUMN `tipe_hitung` ENUM('bulanan','harian','lembur') NOT NULL DEFAULT 'bulanan' AFTER `jenis`");
     log_message("Kolom 'tipe_hitung' berhasil ditambahkan ke tabel hr_komponen_gaji.");
+} else {
+    // Pastikan enum value 'lembur' ada jika kolom sudah ada
+    $conn_setup->query("ALTER TABLE `hr_komponen_gaji` MODIFY COLUMN `tipe_hitung` ENUM('bulanan','harian','lembur') NOT NULL DEFAULT 'bulanan'");
 }
 
-$check_col_komponen_tipe = $conn_setup->query("SHOW COLUMNS FROM `hr_komponen_gaji` LIKE 'tipe_hitung'");
-if ($check_col_komponen_tipe && $check_col_komponen_tipe->num_rows == 0) {
-    $conn_setup->query("ALTER TABLE `hr_komponen_gaji` ADD COLUMN `tipe_hitung` ENUM('bulanan','harian') NOT NULL DEFAULT 'bulanan' AFTER `jenis`");
-    log_message("Kolom 'tipe_hitung' berhasil ditambahkan ke tabel hr_komponen_gaji.");
+$check_col_karyawan_lahir = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'tanggal_lahir'");
+if ($check_col_karyawan_lahir && $check_col_karyawan_lahir->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `tanggal_lahir` DATE DEFAULT NULL AFTER `nama_lengkap`");
+    log_message("Kolom 'tanggal_lahir' berhasil ditambahkan ke tabel hr_karyawan.");
+}
+
+// --- Setup Tabel Dokumen Portal & Request Surat ---
+$sql_hr_dokumen_portal = "
+CREATE TABLE IF NOT EXISTS `hr_dokumen_perusahaan` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `judul` varchar(255) NOT NULL,
+  `kategori` varchar(100) NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `hr_request_surat` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `karyawan_id` int(11) NOT NULL,
+  `jenis_surat` varchar(50) NOT NULL,
+  `keterangan` text,
+  `status` enum('pending','processed','completed','rejected') DEFAULT 'pending',
+  `file_path` varchar(255) DEFAULT NULL,
+  `admin_note` text,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `karyawan_id` (`karyawan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+
+if ($conn_setup->multi_query($sql_hr_dokumen_portal)) {
+    while ($conn_setup->more_results() && $conn_setup->next_result()) {;}
+    log_message("Struktur tabel Dokumen Portal & Request Surat berhasil dibuat.");
+}
+
+// Dummy data untuk Dokumen Perusahaan (jika kosong)
+$check_docs = $conn_setup->query("SELECT COUNT(*) as cnt FROM hr_dokumen_perusahaan");
+if ($check_docs && $check_docs->fetch_assoc()['cnt'] == 0) {
+    $conn_setup->query("INSERT INTO hr_dokumen_perusahaan (judul, kategori, file_path) VALUES 
+        ('Peraturan Perusahaan 2024', 'Peraturan', '#'),
+        ('Kebijakan Cuti & Absensi', 'Kebijakan', '#'),
+        ('Panduan Klaim Reimbursement', 'Panduan', '#')");
+    log_message("Dummy data Dokumen Perusahaan berhasil dibuat.");
 }
 
 $check_col_karyawan_pajak = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'npwp'");
@@ -422,6 +481,12 @@ $check_col_karyawan_kontrak = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan
 if ($check_col_karyawan_kontrak && $check_col_karyawan_kontrak->num_rows == 0) {
     $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `tanggal_berakhir_kontrak` DATE DEFAULT NULL AFTER `tanggal_masuk`");
     log_message("Kolom 'tanggal_berakhir_kontrak' berhasil ditambahkan ke tabel hr_karyawan.");
+}
+
+$check_col_karyawan_kontak = $conn_setup->query("SHOW COLUMNS FROM `hr_karyawan` LIKE 'email'");
+if ($check_col_karyawan_kontak && $check_col_karyawan_kontak->num_rows == 0) {
+    $conn_setup->query("ALTER TABLE `hr_karyawan` ADD COLUMN `email` VARCHAR(100) DEFAULT NULL AFTER `nama_lengkap`, ADD COLUMN `no_hp` VARCHAR(20) DEFAULT NULL AFTER `email`");
+    log_message("Kolom kontak (email, no_hp) berhasil ditambahkan ke tabel hr_karyawan.");
 }
 
 $check_col_users_active = $conn_setup->query("SHOW COLUMNS FROM `users` LIKE 'is_active'");

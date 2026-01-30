@@ -57,7 +57,12 @@ class SPLReportBuilder implements ReportBuilderInterface
         // Generate QR Code ke file temporary
         $tempDir = sys_get_temp_dir();
         $qrFile = $tempDir . '/spl_qr_' . md5($qrContent) . '.png';
+        
+        // Suppress deprecated warnings from phpqrcode library (not compatible with PHP 8.2+)
+        $current_error_level = error_reporting();
+        error_reporting($current_error_level & ~E_DEPRECATED);
         QRcode::png($qrContent, $qrFile, QR_ECLEVEL_L, 3, 2);
+        error_reporting($current_error_level);
         
         // Tampilkan di pojok kanan atas (X=170, Y=35), sesuaikan posisi jika perlu
         $this->pdf->Image($qrFile, 170, 35, 25, 0, 'PNG');

@@ -144,6 +144,20 @@ function loadAbsensi() {
 
                     const statusBadge = `<span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-medium rounded-full shadow-sm ${item.badge_class}">${statusIcon} ${item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : '-'}</span>`;
 
+                    // Badge Jenis Absensi
+                    let jenisBadge = '';
+                    if (item.jenis_absensi === 'qrcode') {
+                        jenisBadge = '<span class="ml-2 px-2 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 border border-purple-200 dark:border-purple-800"><i class="bi bi-qr-code"></i> QR</span>';
+                    } else if (item.jenis_absensi === 'selfie') {
+                        jenisBadge = '<span class="ml-2 px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-800"><i class="bi bi-camera"></i> Selfie</span>';
+                    }
+
+                    // Tombol Foto
+                    let photoBtn = '';
+                    if (item.foto_masuk) {
+                        photoBtn = `<button onclick="viewPhoto('${basePath}/${item.foto_masuk}', 'Foto Masuk - ${item.nama_lengkap}')" class="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 transition-colors" title="Lihat Foto Masuk"><i class="bi bi-image"></i></button>`;
+                    }
+
                     // Escape string untuk keamanan
                     const itemJson = JSON.stringify(item).replace(/'/g, "&#39;");
 
@@ -188,12 +202,14 @@ function loadAbsensi() {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 ${statusBadge}
+                                ${jenisBadge}
                             </td>
                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title="${item.keterangan || ''}">
                                 ${item.keterangan || '-'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex justify-end space-x-2">
+                                    ${photoBtn}
                                     <button onclick='editAbsensi(${itemJson})' class="p-1.5 rounded-md text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors" title="Edit">
                                         <i class="bi bi-pencil-square text-lg"></i>
                                     </button>
@@ -356,6 +372,17 @@ function deleteAbsensi(id) {
         }
     });
 }
+
+// Fungsi Global untuk Preview Foto
+window.viewPhoto = function(url, title) {
+    Swal.fire({
+        title: title,
+        imageUrl: url,
+        imageAlt: 'Foto Absensi',
+        imageHeight: 400,
+        confirmButtonText: 'Tutup'
+    });
+};
 
 function renderTopEmployees(data) {
     const container = document.getElementById('top-employees-list');

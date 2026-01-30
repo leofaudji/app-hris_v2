@@ -299,16 +299,23 @@ function runPageScripts(path) {
         '/hr/manajemen-klaim': { script: 'hr/manajemen_klaim.js', init: 'initManajemenKlaimPage' },
         '/hr/lembur': { script: 'hr/lembur.js', init: 'initLemburPage' },
         '/hr/peringatan-kontrak': { script: 'hr/peringatan_kontrak.js', init: 'initPeringatanKontrakPage' },
+        '/hr/dokumen-perusahaan': { script: 'hr/dokumen_perusahaan.js', init: 'initDokumenPerusahaanPage' },
+        '/hr/request-surat': { script: 'hr/request_surat.js', init: 'initRequestSuratPage' },
         '/hr/kpi-templates': { script: 'hr/kpi_templates.js', init: 'initKpiTemplatesPage' },
         '/hr/penilaian-kinerja': { script: 'hr/penilaian_kinerja.js', init: 'initPenilaianKinerjaPage' },
         '/hr/pengumuman': { script: 'hr/pengumuman.js', init: 'initPengumumanPage' },
         '/hr/rekrutmen': { script: 'hr/rekrutmen.js', init: 'initRekrutmenPage' },
         '/hr/offboarding': { script: 'hr/offboarding.js', init: 'initOffboardingPage' },
+        '/hr/qrcode-generator': { script: 'hr/qrcode_generator.js', init: 'initQrCodeGeneratorPage' },
         '/hr/portal/dashboard': { script: 'hr/portal/dashboard.js', init: 'initPortalDashboardPage' },
         '/hr/portal/profil': { script: 'hr/portal/profil.js', init: 'initPortalProfilPage' },
-        '/hr/portal/absensi': { script: 'hr/portal/absensi.js', init: 'initPortalAbsensiPage' },
+        '/hr/portal/absensi': { script: 'hr/portal/absensi.js', init: 'initPortalAbsensiPage', requires: 'html5qrcode' },
+        '/hr/portal/directory': { script: 'hr/portal/directory.js', init: 'initPortalDirectoryPage' },
+        '/hr/portal/kalender': { script: 'hr/portal/kalender.js', init: 'initPortalKalenderPage', requires: 'fullcalendar' },
+        '/hr/portal/dokumen': { script: 'hr/portal/dokumen.js', init: 'initPortalDokumenPage' },
         '/hr/portal/pengajuan-cuti': { script: 'hr/portal/pengajuan_cuti.js', init: 'initPortalPengajuanCutiPage' },
         '/hr/portal/lembur': { script: 'hr/portal/lembur.js', init: 'initPortalLemburPage' },
+        '/hr/portal/kpi': { script: 'hr/portal/kpi.js', init: 'initPortalKpiPage' },
         '/hr/portal/klaim': { script: 'hr/portal/klaim.js', init: 'initPortalKlaimPage' },
         '/hr/portal/slip-gaji': { script: 'hr/portal/slipgaji.js', init: 'initPortalSlipGajiPage' },
         '/buku-panduan': { script: null, init: null }, // Halaman statis
@@ -318,18 +325,27 @@ function runPageScripts(path) {
     const route = routeMap[cleanPath];
 
     if (route) {
-        if (route.script && route.init) {
-            loadScript(`${basePath}/assets/js/${route.script}`)
-                .then(() => {
-                    if (typeof window[route.init] === 'function') {
-                        window[route.init]();
-                    } else {
-                        console.error(`Initialization function ${route.init} not found.`);
-                    }
-                })
-                .catch(err => console.error(err));
+        const executeScript = () => {
+            if (route.script && route.init) {
+                loadScript(`${basePath}/assets/js/${route.script}`)
+                    .then(() => {
+                        if (typeof window[route.init] === 'function') {
+                            window[route.init]();
+                        } else {
+                            console.error(`Initialization function ${route.init} not found.`);
+                        }
+                    })
+                    .catch(err => console.error(err));
+            }
+        };
+
+        if (route.requires === 'fullcalendar') {
+            loadFullCalendar().then(executeScript).catch(console.error);
+        } else if (route.requires === 'html5qrcode') {
+            loadHtml5QrCode().then(executeScript).catch(console.error);
+        } else {
+            executeScript();
         }
-        // Jika script null, tidak melakukan apa-apa (untuk halaman statis)
     } else {
         console.warn(`No script definition for path: ${cleanPath}`);
     }
@@ -374,6 +390,49 @@ function loadGoogleCharts() {
                 .then(resolve)
                 .catch(reject);
         }
+    });
+}
+
+/**
+ * Loads FullCalendar library dynamically.
+ * @returns {Promise<void>}
+ */
+function loadFullCalendar() {
+    return new Promise((resolve, reject) => {
+        if (typeof FullCalendar !== 'undefined') {
+            resolve();
+            return;
+        }
+
+        // Load CSS
+        if (!document.querySelector('link[href*="fullcalendar"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css';
+            document.head.appendChild(link);
+        }
+
+        // Load JS
+        loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js')
+            .then(() => loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/id.js'))
+            .then(resolve)
+            .catch(reject);
+    });
+}
+
+/**
+ * Loads Html5Qrcode library dynamically.
+ * @returns {Promise<void>}
+ */
+function loadHtml5QrCode() {
+    return new Promise((resolve, reject) => {
+        if (typeof Html5Qrcode !== 'undefined') {
+            resolve();
+            return;
+        }
+        loadScript('https://unpkg.com/html5-qrcode')
+            .then(resolve)
+            .catch(reject);
     });
 }
 
@@ -454,6 +513,36 @@ function updateSidebarBadges() {
             }
         })
         .catch(err => console.error('Error fetching badges:', err));
+
+    // Request Surat Badge
+    fetch(`${basePath}/api/hr/request-surat?action=get_pending_count`)
+        .then(response => response.json())
+        .then(data => {
+            const hasPending = data.success && data.total > 0;
+            const totalPending = hasPending ? data.total : 0;
+
+            let badgeSurat = document.getElementById('badge-hr_request_surat');
+            // Inject badge if not exists (assuming standard sidebar link structure)
+            if (!badgeSurat) {
+                const link = document.querySelector('a[href*="/hr/request-surat"]');
+                if (link) {
+                    badgeSurat = document.createElement('span');
+                    badgeSurat.id = 'badge-hr_request_surat';
+                    badgeSurat.className = 'ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full hidden';
+                    link.appendChild(badgeSurat);
+                }
+            }
+
+            if (badgeSurat) {
+                if (hasPending) {
+                    badgeSurat.textContent = totalPending;
+                    badgeSurat.classList.remove('hidden');
+                } else {
+                    badgeSurat.classList.add('hidden');
+                }
+            }
+        })
+        .catch(err => console.error('Error fetching surat badges:', err));
 }
 
 /**

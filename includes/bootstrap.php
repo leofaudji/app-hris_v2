@@ -26,6 +26,8 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+// Set timezone aplikasi ke Asia/Jakarta (GMT+7)
+date_default_timezone_set('Asia/Jakarta');
 
 
 require_once __DIR__ . '/functions.php';

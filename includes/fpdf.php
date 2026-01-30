@@ -25,6 +25,7 @@ protected $StdPageSizes;       // standard page sizes
 protected $DefPageSize;        // default page size
 protected $CurPageSize;        // current page size
 protected $CurPageFormat;      // current page format
+protected $CurRotation = 0;    // current rotation
 protected $PageFormats;        // page formats
 protected $PageInfo;           // page-related data
 protected $wPt, $hPt;          // dimensions of current page in points
@@ -227,31 +228,31 @@ function SetCompression($compress)
 function SetTitle($title, $isUTF8=false)
 {
 	// Title of document
-	$this->metadata['Title'] = $isUTF8 ? $title : utf8_encode($title);
+	$this->metadata['Title'] = $isUTF8 ? $title : mb_convert_encoding($title, 'UTF-8', 'ISO-8859-1');
 }
 
 function SetAuthor($author, $isUTF8=false)
 {
 	// Author of document
-	$this->metadata['Author'] = $isUTF8 ? $author : utf8_encode($author);
+	$this->metadata['Author'] = $isUTF8 ? $author : mb_convert_encoding($author, 'UTF-8', 'ISO-8859-1');
 }
 
 function SetSubject($subject, $isUTF8=false)
 {
 	// Subject of document
-	$this->metadata['Subject'] = $isUTF8 ? $subject : utf8_encode($subject);
+	$this->metadata['Subject'] = $isUTF8 ? $subject : mb_convert_encoding($subject, 'UTF-8', 'ISO-8859-1');
 }
 
 function SetKeywords($keywords, $isUTF8=false)
 {
 	// Keywords of document
-	$this->metadata['Keywords'] = $isUTF8 ? $keywords : utf8_encode($keywords);
+	$this->metadata['Keywords'] = $isUTF8 ? $keywords : mb_convert_encoding($keywords, 'UTF-8', 'ISO-8859-1');
 }
 
 function SetCreator($creator, $isUTF8=false)
 {
 	// Creator of document
-	$this->metadata['Creator'] = $isUTF8 ? $creator : utf_encode($creator);
+	$this->metadata['Creator'] = $isUTF8 ? $creator : mb_convert_encoding($creator, 'UTF-8', 'ISO-8859-1');
 }
 
 function AliasNbPages($alias='{nb}')
